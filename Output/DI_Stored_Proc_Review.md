@@ -1,0 +1,35 @@
+Review Summary
+
+| Metric | Detail |
+|---|---|
+| Total rows evaluated | 15 |
+| Meaningful transformation rules | 15 / 100% |
+| Aligned with inputs | 15 / 100% |
+| Rows passing both checks | 15 / 100% |
+| PII rows missing a masking/tokenization step | 0 |
+
+Validated Transformation Report
+
+| Stage.Step | Source Column(s) | Transformation Rule | Status | Notes |
+|---|---|---|---|---|
+| MIGRATE_DIM_ORGANIZATION | CANONICAL.DIM_ORGANIZATION.* → ANALYTICAL.DIM_ORGANIZATION.* | Direct column-to-column INSERT mapping; one canonical column per analytical column with identical names and compatible types. | Confirmed | Full-load pattern with TRUNCATE + INSERT; audit logging and retry logic are orthogonal to column transformations and correctly implemented. |
+| MIGRATE_DIM_FACILITY | CANONICAL.DIM_FACILITY.* → ANALYTICAL.DIM_FACILITY.* | Direct column-to-column INSERT mapping; one canonical column per analytical column with identical names and compatible types. | Confirmed | SCD2 semantics are preserved by loading full canonical history; no conflicting type or format differences are visible. |
+| MIGRATE_DIM_PRODUCT | CANONICAL.DIM_PRODUCT.* → ANALYTICAL.DIM_PRODUCT.* | Direct column-to-column INSERT mapping; one canonical column per analytical column with identical names and compatible types. | Confirmed | All attributes, including yield percentages and shelf-life months, are carried through without inconsistent casting or unit changes. |
+| MIGRATE_DIM_MATERIAL_LOT | CANONICAL.DIM_MATERIAL_LOT.* → ANALYTICAL.DIM_MATERIAL_LOT.* | Direct column-to-column INSERT mapping; one canonical column per analytical column with identical names and compatible types. | Confirmed | Lot, date, quantity, and status attributes are moved 1:1; no missing or extraneous conversions. |
+| MIGRATE_DIM_EQUIPMENT | CANONICAL.DIM_EQUIPMENT.* → ANALYTICAL.DIM_EQUIPMENT.* | Direct column-to-column INSERT mapping; one canonical column per analytical column with identical names and compatible types. | Confirmed | Equipment identifiers, dates, volumes, and runtime metrics are carried through directly; no rule contradicts the visible column semantics. |
+| MIGRATE_DIM_PROCESS_STEP | CANONICAL.DIM_PROCESS_STEP.* → ANALYTICAL.DIM_PROCESS_STEP.* | Direct column-to-column INSERT mapping; one canonical column per analytical column with identical names and compatible types. | Confirmed | Sequence/order, duration bounds, and flags (IsCcp, IsActive) are all passed 1:1 and consistent with their usage. |
+| MIGRATE_DIM_PROCESS_PARAMETER | CANONICAL.DIM_PROCESS_PARAMETER.* → ANALYTICAL.DIM_PROCESS_PARAMETER.* | Direct column-to-column INSERT mapping; one canonical column per analytical column with identical names and compatible types. | Confirmed | Canonical UOM and source UOM fields are loaded as separate attributes; any conversion formula is preserved as-is in ConversionFormulaOps. |
+| MIGRATE_DIM_QUALITY_DISPOSITION | CANONICAL.DIM_QUALITY_DISPOSITION.* → ANALYTICAL.DIM_QUALITY_DISPOSITION.* | Direct column-to-column INSERT mapping; one canonical column per analytical column with identical names and compatible types. | Confirmed | Disposition codes, flags, and descriptions retain their canonical meaning; no hidden recoding or omitted inputs. |
+| MIGRATE_DIM_DEVIATION_CATEGORY | CANONICAL.DIM_DEVIATION_CATEGORY.* → ANALYTICAL.DIM_DEVIATION_CATEGORY.* | Direct column-to-column INSERT mapping; one canonical column per analytical column with identical names and compatible types. | Confirmed | Category attributes (code, name, group, CAPA flag) are moved 1:1 and align with their source semantics. |
+| MIGRATE_DIM_OPERATOR | CANONICAL.DIM_OPERATOR.FullName → ANALYTICAL.DIM_OPERATOR.FullName | FullName is hard-masked to NULL on insert to avoid storing clear-text PII. All other columns are mapped 1:1 from canonical to analytical. | Confirmed (PII) | PII treatment is explicit, deterministic, and aligned with the stated policy note in the procedure comments. No other operator attributes are transformed in a way that conflicts with their source types. |
+| MIGRATE_FACT_PRODUCTION_ORDER | CANONICAL.FACT_PRODUCTION_ORDER.* → ANALYTICAL.FACT_PRODUCTION_ORDER.* | Direct column-to-column INSERT mapping; timestamps and metrics are carried through as-is from canonical to analytical. | Confirmed | All fact measures (quantities, yields, OEE components) and foreign keys are moved 1:1; loaded-at timestamp and source lineage fields are preserved without invented logic. |
+| MIGRATE_FACT_BATCH_STEP | CANONICAL.FACT_BATCH_STEP.* → ANALYTICAL.FACT_BATCH_STEP.* | Direct column-to-column INSERT mapping; timestamps, quantities, and status flags are carried through as-is. | Confirmed | Step-level metrics, e-signature fields, and deviation indicators are passed directly; no missing handling of multi-source inputs. |
+| MIGRATE_FACT_EQUIPMENT_TELEMETRY | CANONICAL.FACT_EQUIPMENT_TELEMETRY.* → ANALYTICAL.FACT_EQUIPMENT_TELEMETRY.* | Direct column-to-column INSERT mapping; telemetry readings, units, limits, and derived comparison fields are passed directly from canonical. | Confirmed | Canonical vs source value/units and conversion flags are loaded as separate attributes; no contradictory casting or implied conversion. |
+| MIGRATE_FACT_DEVIATION | CANONICAL.FACT_DEVIATION.* → ANALYTICAL.FACT_DEVIATION.* | Direct column-to-column INSERT mapping; investigation, CAPA, and regulatory attributes are carried through as-is. | Confirmed | Deviation lifecycle fields (detected, investigation, CAPA, closure) and regulatory flags are all mapped 1:1 and consistent with their naming. |
+| MIGRATE_FACT_YIELD_ANALYTICS | CANONICAL.FACT_YIELD_ANALYTICS.ANALYSIS_DATE → ANALYTICAL.FACT_YIELD_ANALYTICS.DateKey | DateKey is derived as TO_NUMBER(TO_CHAR(ANALYSIS_DATE, 'YYYYMMDD')); all other analytical columns are mapped 1:1 from canonical. | Confirmed | The DateKey derivation is explicit, deterministic, and type-aligned (DATE → numeric YYYYMMDD). Measures and keys are carried through without conflicting conversions. |
+| MIGRATE_FACT_SHIFT_LOG | CANONICAL.FACT_SHIFT_LOG.LOG_DATE → ANALYTICAL.FACT_SHIFT_LOG.DateKey | DateKey is derived as TO_NUMBER(TO_CHAR(LOG_DATE, 'YYYYMMDD')); all other analytical columns are mapped 1:1 from canonical. | Confirmed | Shift date, timestamps, counts, downtime minutes, and notes are moved 1:1; DateKey derivation is consistent with the yield analytics pattern. |
+| MIGRATE_DIM_DATE | Derived generator date `d` → ANALYTICAL.DIM_DATE.* | Date dimension rows are generated from v_date_start to v_date_end using TABLE(GENERATOR), with DateKey as numeric YYYYMMDD and calendar attributes derived via EXTRACT/TO_CHAR. | Confirmed | All derived fields (day, month, quarter, fiscal year/quarter, weekend flag) are explicitly computed from `d` with clear, executable Snowflake expressions.
+
+Recommendations
+
+1. Maintain current pipeline standards. All reviewed stored procedure transformations are explicit, executable, and correctly aligned with their inputs, including special handling for PII and derived date keys.
