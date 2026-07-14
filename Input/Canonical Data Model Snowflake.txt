@@ -1,0 +1,1025 @@
+-- ============================================================
+-- CANONICAL UNIFIED DATA MODEL
+-- Platform    : Snowflake
+-- Database    : PHARMA_UNIFIED_DB
+-- Schema      : CANONICAL
+-- Version     : 1.0
+-- Date        : 2026-07-13
+-- Purpose     : Industry-standard superset canonical model for
+--               pharma manufacturing data consolidation.
+--               Designed as the Gold Layer target for the
+--               agentic data model consolidation pipeline
+--               ingesting Mart A (PostgreSQL), Mart B (Snowflake),
+--               and Operational System (SQL Server).
+-- Standards   : GAMP 5, 21 CFR Part 11, ICH Q10, ALCOA+,
+--               ISA-95 (Manufacturing Operations Management),
+--               IDMP (ISO 11615 product identification),
+--               FHIR R4 (where applicable to product master)
+-- Mandatory   : Fields marked [MANDATORY] must never be NULL.
+--               Fields marked [CONDITIONAL] are mandatory when
+--               a specific condition is met (noted inline).
+-- Source Keys : Every entity carries _SOURCE_SYSTEM and
+--               _SOURCE_KEY columns for full lineage traceability
+--               back to the originating source record.
+-- Audit Trail : Every entity carries standard ALCOA+ audit
+--               columns: CREATED_AT, CREATED_BY, UPDATED_AT,
+--               UPDATED_BY, IS_DELETED, DELETED_AT.
+-- ============================================================
+
+CREATE DATABASE IF NOT EXISTS PHARMA_UNIFIED_DB;
+CREATE SCHEMA   IF NOT EXISTS PHARMA_UNIFIED_DB.CANONICAL;
+
+USE DATABASE PHARMA_UNIFIED_DB;
+USE SCHEMA   CANONICAL;
+
+-- ============================================================
+-- DOMAIN 1: FACILITY & ORGANIZATION
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- TABLE: DIM_ORGANIZATION
+-- Domain      : Facility & Organization
+-- Description : Top-level organizational units that own or
+--               operate manufacturing facilities. Represents
+--               legal entities, divisions, and business units
+--               within the enterprise. Root anchor for all
+--               site and facility records.
+-- ISA-95 Ref  : Enterprise level of the equipment hierarchy.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS DIM_ORGANIZATION (
+    ORGANIZATION_KEY        NUMBER AUTOINCREMENT PRIMARY KEY,   -- [MANDATORY] Surrogate key
+    ORGANIZATION_ID         VARCHAR(50)  NOT NULL UNIQUE,        -- [MANDATORY] Enterprise org code. e.g. ORG-TAKEDA-ONC
+    ORGANIZATION_NAME       VARCHAR(200) NOT NULL,               -- [MANDATORY] Full legal name. e.g. Takeda Oncology Division
+    ORGANIZATION_TYPE       VARCHAR(80)  NOT NULL,               -- [MANDATORY] Type: COMPANY | DIVISION | BUSINESS_UNIT | SUBSIDIARY
+    PARENT_ORGANIZATION_KEY NUMBER       REFERENCES DIM_ORGANIZATION(ORGANIZATION_KEY), -- Parent org for hierarchy. e.g. 1 (Takeda Global)
+    COUNTRY_CODE            CHAR(2)      NOT NULL,               -- [MANDATORY] ISO 3166-1 alpha-2. e.g. US
+    REGULATORY_REGION       VARCHAR(80),                         -- Regulatory jurisdiction. e.g. FDA | EMA | PMDA
+    IS_ACTIVE               BOOLEAN      NOT NULL DEFAULT TRUE,  -- [MANDATORY] TRUE if org is currently active
+    EFFECTIVE_START_DATE    DATE         NOT NULL,               -- [MANDATORY] Date this org record became valid
+    EFFECTIVE_END_DATE      DATE,                                -- NULL means currently active
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),                         -- Originating source system. e.g. SAP_ERP
+    _SOURCE_KEY             VARCHAR(100),                        -- Source system primary key value
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ------------------------------------------------------------
+-- TABLE: DIM_FACILITY
+-- Domain      : Facility & Organization
+-- Description : Physical manufacturing, testing, packaging, or
+--               storage sites. Canonical superset of facility
+--               records from all three source systems. Includes
+--               GMP certification status, regulatory agency
+--               assignments, and full SCD Type 2 versioning
+--               to preserve audit history when facility
+--               attributes change. Enterprise facility codes
+--               are the canonical identifier; source-system
+--               codes are retained as alternate keys.
+-- ISA-95 Ref  : Site level of the equipment hierarchy.
+-- SCD Type    : Type 2 — new row on attribute change.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS DIM_FACILITY (
+    FACILITY_KEY            NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key. Used for all FK joins.
+    FACILITY_ID             VARCHAR(50)  NOT NULL,               -- [MANDATORY] Enterprise facility code. e.g. FAC-LEX-01
+    FACILITY_NAME           VARCHAR(200) NOT NULL,               -- [MANDATORY] Full official facility name. e.g. Lexington Biologics Manufacturing
+    FACILITY_SHORT_NAME     VARCHAR(80),                         -- Common short name. e.g. Lexington Site
+    ORGANIZATION_KEY        NUMBER       REFERENCES DIM_ORGANIZATION(ORGANIZATION_KEY), -- Parent organization
+    SITE_CODE               VARCHAR(20)  NOT NULL,               -- [MANDATORY] Short site code. e.g. LEX | NR | SD
+    FACILITY_TYPE           VARCHAR(80)  NOT NULL,               -- [MANDATORY] Type: MANUFACTURING | FILL_FINISH | LYPHILIZATION | PACKAGING | QC_LAB | STORAGE | DISTRIBUTION
+    ADDRESS_LINE_1          VARCHAR(200),                        -- Street address line 1
+    ADDRESS_LINE_2          VARCHAR(200),                        -- Street address line 2
+    CITY                    VARCHAR(100),                        -- City. e.g. Lexington
+    STATE_REGION            VARCHAR(100),                        -- State or region. e.g. Massachusetts
+    POSTAL_CODE             VARCHAR(20),                         -- Postal or ZIP code. e.g. 02421
+    COUNTRY_CODE            CHAR(2)      NOT NULL,               -- [MANDATORY] ISO 3166-1 alpha-2. e.g. US
+    TIMEZONE_NAME           VARCHAR(80)  NOT NULL,               -- [MANDATORY] IANA timezone. e.g. America/New_York
+    UTC_OFFSET_HOURS        DECIMAL(4,2),                        -- UTC offset in hours. e.g. -5.00 (EST)
+    GMP_CERTIFIED           BOOLEAN      NOT NULL DEFAULT TRUE,  -- [MANDATORY] TRUE if site holds current GMP certification
+    GMP_CERTIFICATION_DATE  DATE,                                -- Date of most recent GMP certification award
+    GMP_EXPIRY_DATE         DATE,                                -- GMP certification expiry date
+    REGULATORY_AGENCY       VARCHAR(80),                         -- Primary regulatory agency. e.g. FDA | EMA | PMDA | ANVISA
+    FDA_ESTABLISHMENT_ID    VARCHAR(50),                         -- FDA Establishment Identifier (FEI) if applicable
+    EMA_SITE_CODE           VARCHAR(50),                         -- EMA site code if applicable
+    MANUFACTURING_CAPACITY  VARCHAR(80),                         -- Scale classification. e.g. CLINICAL | COMMERCIAL | BOTH
+    -- Source alternate keys (for crosswalk to source systems)
+    SOURCE_SITE_CODE_MART_A VARCHAR(20),                         -- Site code as known in Mart A. e.g. LEX
+    SOURCE_PLANT_CODE_OPS   VARCHAR(30),                         -- Plant code in Operational System. e.g. PLANT-LEX-MA
+    SOURCE_FAC_CODE_MART_B  VARCHAR(30),                         -- Facility code in Mart B. e.g. FAC-LEX-01
+    -- SCD Type 2
+    EFFECTIVE_START_DATE    DATE         NOT NULL,               -- [MANDATORY] Start of this record version
+    EFFECTIVE_END_DATE      DATE,                                -- NULL = currently active version
+    CURRENT_FLAG            BOOLEAN      NOT NULL DEFAULT TRUE,  -- [MANDATORY] TRUE for active version
+    SCD_VERSION             NUMBER       NOT NULL DEFAULT 1,     -- Version number of this SCD record
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),
+    _SOURCE_KEY             VARCHAR(100),
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ============================================================
+-- DOMAIN 2: PRODUCT & MATERIAL
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- TABLE: DIM_PRODUCT
+-- Domain      : Product & Material
+-- Description : Enterprise product master covering all drug
+--               substances, drug products, and intermediates
+--               manufactured across the organization. Canonical
+--               superset of product records from all three
+--               source systems. Includes IDMP-aligned product
+--               classification, regulatory submission identifiers,
+--               formulation version control, and standard yield
+--               benchmarks. SCD Type 2 preserves formulation
+--               and yield history for batch traceability.
+-- IDMP Ref    : ISO 11615 Medicinal Product Identification.
+-- SCD Type    : Type 2 — new row on formulation or yield change.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS DIM_PRODUCT (
+    PRODUCT_KEY             NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    PRODUCT_ID              VARCHAR(50)  NOT NULL,               -- [MANDATORY] Enterprise product ID. e.g. ONC-RX-9
+    SKU                     VARCHAR(60)  NOT NULL,               -- [MANDATORY] Stock Keeping Unit. e.g. SKU-ONC-009
+    PRODUCT_NAME            VARCHAR(200) NOT NULL,               -- [MANDATORY] Official product name. e.g. Rituximab Biosimilar 500mg
+    PRODUCT_SHORT_NAME      VARCHAR(80),                         -- Abbreviated name used in operational reports
+    ORGANIZATION_KEY        NUMBER       REFERENCES DIM_ORGANIZATION(ORGANIZATION_KEY),
+    FORMULATION_ID          VARCHAR(60),                         -- Formulation specification ID. e.g. FORM-RX9-V3
+    FORMULATION_VERSION     VARCHAR(20),                         -- Formulation version number. e.g. V3
+    DOSAGE_FORM             VARCHAR(80),                         -- Pharmaceutical form. e.g. Lyophilized Powder | Liquid Injectable | Oral Tablet
+    DOSAGE_STRENGTH         VARCHAR(80),                         -- Strength descriptor. e.g. 500mg | 100mg/10mL
+    ROUTE_OF_ADMINISTRATION VARCHAR(80),                         -- e.g. Intravenous | Oral | Subcutaneous
+    THERAPEUTIC_CLASS       VARCHAR(100) NOT NULL,               -- [MANDATORY] Therapeutic category. e.g. Monoclonal Antibody | Small Molecule
+    THERAPEUTIC_AREA        VARCHAR(100),                        -- Disease area. e.g. Oncology | Hematology | Immunology
+    PRODUCT_CATEGORY        VARCHAR(80),                         -- Broad category. e.g. BIOLOGIC | SMALL_MOLECULE | CELL_GENE | ADC | BIOSIMILAR
+    IS_BIOSIMILAR           BOOLEAN      NOT NULL DEFAULT FALSE, -- TRUE if product is a biosimilar
+    REFERENCE_PRODUCT_ID    VARCHAR(50),                         -- Reference originator product ID if biosimilar
+    -- Regulatory identifiers
+    INN_NAME                VARCHAR(200),                        -- International Nonproprietary Name. e.g. rituximab
+    IDMP_MPID               VARCHAR(100),                        -- IDMP Medicinal Product Identifier
+    NDA_BLA_NUMBER          VARCHAR(50),                         -- FDA NDA or BLA number. e.g. BLA-125486
+    EMA_PRODUCT_NUMBER      VARCHAR(50),                         -- EMA product number
+    -- Manufacturing benchmarks
+    STANDARD_YIELD_PCT      DECIMAL(6,3),                        -- Validated target yield %. e.g. 98.000
+    YIELD_LOWER_ALERT_PCT   DECIMAL(6,3),                        -- Alert threshold below standard yield. e.g. 95.000
+    YIELD_LOWER_ACTION_PCT  DECIMAL(6,3),                        -- Action limit — batch review required. e.g. 92.000
+    SHELF_LIFE_MONTHS       NUMBER,                              -- Product shelf life in months. e.g. 24
+    STORAGE_CONDITION       VARCHAR(80),                         -- Required storage condition. e.g. 2-8C | -20C | -80C
+    -- SCD Type 2
+    EFFECTIVE_START_DATE    DATE         NOT NULL,               -- [MANDATORY] Start of this version
+    EFFECTIVE_END_DATE      DATE,
+    CURRENT_FLAG            BOOLEAN      NOT NULL DEFAULT TRUE,  -- [MANDATORY]
+    SCD_VERSION             NUMBER       NOT NULL DEFAULT 1,
+    -- Source alternate keys
+    SOURCE_PRODUCT_CODE_MART_A VARCHAR(50),                      -- Product code in Mart A. e.g. ONC-RX-9
+    SOURCE_PRODUCT_CODE_OPS    VARCHAR(50),                      -- Product code in Op System. e.g. ONC-RX-9
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),
+    _SOURCE_KEY             VARCHAR(100),
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ------------------------------------------------------------
+-- TABLE: DIM_MATERIAL_LOT
+-- Domain      : Product & Material
+-- Description : Individual GMP lot records for raw materials,
+--               intermediates, and finished products. Tracks
+--               material traceability from receipt through
+--               consumption in manufacturing. Enables lot
+--               genealogy — the ability to trace a finished
+--               product lot back to every input material lot
+--               used in its production. Critical for recalls
+--               and regulatory investigations.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS DIM_MATERIAL_LOT (
+    MATERIAL_LOT_KEY        NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    LOT_NUMBER              VARCHAR(80)  NOT NULL UNIQUE,        -- [MANDATORY] GMP lot number. e.g. LOT-2026-5490
+    PRODUCT_KEY             NUMBER       REFERENCES DIM_PRODUCT(PRODUCT_KEY),
+    FACILITY_KEY            NUMBER       REFERENCES DIM_FACILITY(FACILITY_KEY),
+    LOT_TYPE                VARCHAR(50)  NOT NULL,               -- [MANDATORY] LOT type. e.g. FINISHED_GOOD | INTERMEDIATE | RAW_MATERIAL | REFERENCE_STANDARD
+    MANUFACTURE_DATE        DATE,                                -- Date lot was manufactured or received
+    EXPIRY_DATE             DATE,                                -- Lot expiry date
+    RETEST_DATE             DATE,                                -- Date lot must be retested if not yet expired
+    QUANTITY_PRODUCED       DECIMAL(18,3),                       -- Quantity produced or received. e.g. 982.000
+    QUANTITY_UNIT           VARCHAR(20),                         -- Unit of measure. e.g. L | vials | kg
+    LOT_STATUS              VARCHAR(40)  NOT NULL,               -- [MANDATORY] e.g. QUARANTINE | RELEASED | REJECTED | CONSUMED | EXPIRED
+    CERTIFICATE_OF_ANALYSIS VARCHAR(200),                        -- COA document reference or URL
+    VENDOR_LOT_NUMBER       VARCHAR(80),                         -- Supplier lot number for raw materials
+    VENDOR_ID               VARCHAR(80),                         -- Supplier identifier
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),
+    _SOURCE_KEY             VARCHAR(100),
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ============================================================
+-- DOMAIN 3: EQUIPMENT & ASSET
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- TABLE: DIM_EQUIPMENT
+-- Domain      : Equipment & Asset
+-- Description : Canonical equipment master — authoritative
+--               superset of asset records from all three source
+--               systems. Each row represents one physical
+--               manufacturing asset. Carries all three source
+--               system equipment identifiers as alternate keys
+--               to enable the crosswalk that the Semantic
+--               Mapping Agent resolves. Includes ISA-95 aligned
+--               equipment hierarchy (area, unit, module),
+--               OEE planning parameters, and calibration
+--               scheduling fields required for GMP compliance.
+-- ISA-95 Ref  : Equipment module and control module levels.
+-- SCD Type    : Type 1 for minor updates; Type 2 for
+--               qualification status changes.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS DIM_EQUIPMENT (
+    EQUIPMENT_KEY           NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    CANONICAL_EQUIPMENT_ID  VARCHAR(50)  NOT NULL UNIQUE,        -- [MANDATORY] Canonical enterprise equipment ID. e.g. EQP-LEX-RCTR-001
+    EQUIPMENT_NAME          VARCHAR(200) NOT NULL,               -- [MANDATORY] Full descriptive name. e.g. Bioreactor 1 North Wing Lexington
+    FACILITY_KEY            NUMBER       NOT NULL REFERENCES DIM_FACILITY(FACILITY_KEY), -- [MANDATORY] Facility where equipment is located
+    -- ISA-95 Equipment Hierarchy
+    FUNCTIONAL_AREA         VARCHAR(80),                         -- ISA-95 Area. e.g. BIOREACTOR_FARM | FILL_FINISH | LYOPHILIZATION
+    PRODUCTION_UNIT         VARCHAR(80),                         -- ISA-95 Production Unit. e.g. LINE-A | LINE-B | STORAGE
+    EQUIPMENT_MODULE        VARCHAR(80),                         -- ISA-95 Equipment Module. e.g. CELL_CULTURE | FILLING | LYOPHILIZATION
+    -- Equipment classification
+    ASSET_CLASS             VARCHAR(80)  NOT NULL,               -- [MANDATORY] Broad class. e.g. Bioreactor | Filling Machine | Lyophilizer | Freezer | Mixing Tank
+    ASSET_SUBCLASS          VARCHAR(80),                         -- Subclass. e.g. STIRRED_TANK | WAVE_BIOREACTOR | ROTARY_FILLING
+    CRITICALITY_RATING      VARCHAR(20),                         -- GMP criticality. e.g. CRITICAL | MAJOR | MINOR
+    -- Manufacturer details
+    MANUFACTURER_NAME       VARCHAR(100),                        -- e.g. Sartorius | Thermo Fisher | IMA Life | Optima
+    MODEL_NUMBER            VARCHAR(100),                        -- e.g. BIOSTAT-STR-200 | Lyomax-20 | VFVM-200
+    SERIAL_NUMBER           VARCHAR(100),                        -- Manufacturer serial number
+    WORKING_VOLUME_L        DECIMAL(12,3),                       -- Working volume in litres (bioreactors, tanks). e.g. 200.000
+    -- Installation and qualification
+    INSTALLATION_DATE       DATE,                                -- Physical installation date
+    COMMISSIONING_DATE      DATE,                                -- Date equipment was commissioned for GMP use
+    QUALIFICATION_STATUS    VARCHAR(30)  NOT NULL,               -- [MANDATORY] e.g. QUALIFIED | PENDING | OUT_OF_SERVICE | RETIRED
+    LAST_QUALIFICATION_DATE DATE,                                -- Most recent IQ/OQ/PQ completion date
+    NEXT_QUALIFICATION_DATE DATE,                                -- Scheduled requalification date
+    -- Calibration
+    CALIBRATION_FREQUENCY   VARCHAR(30),                         -- Calibration schedule. e.g. MONTHLY | QUARTERLY | SEMI_ANNUAL | ANNUAL
+    LAST_CALIBRATION_DATE   DATE,                                -- Most recent calibration completion date
+    CALIBRATION_DUE_DATE    DATE,                                -- Next calibration due date. CRITICAL GMP field
+    CALIBRATION_STATUS      VARCHAR(30),                         -- e.g. COMPLIANT | DUE_SOON | OVERDUE
+    -- OEE planning parameters
+    PLANNED_RUNTIME_MINS_PER_DAY NUMBER,                         -- Planned available production minutes per day. e.g. 1080
+    IDEAL_CYCLE_TIME_SECS   DECIMAL(12,4),                       -- Ideal cycle time in seconds for OEE Performance calc. e.g. 2.5000
+    -- Equipment status
+    EQUIPMENT_STATUS        VARCHAR(30)  NOT NULL DEFAULT 'ACTIVE', -- [MANDATORY] ACTIVE | UNDER_MAINTENANCE | INACTIVE | RETIRED
+    STATUS_EFFECTIVE_DATE   DATE,                                -- Date current status became effective
+    DECOMMISSION_DATE       DATE,                                -- Date equipment was decommissioned (if retired)
+    -- Source alternate keys (crosswalk — key conflict resolution)
+    SOURCE_EQUIP_ID_MART_A  VARCHAR(50),                         -- Mart A site-local ID. e.g. LEX-RCTR-01
+    SOURCE_ASSET_CODE_OPS   VARCHAR(50),                         -- Op System asset code. e.g. ASSET-00441
+    SOURCE_EQUIP_CODE_MART_B VARCHAR(50),                        -- Mart B enterprise code. e.g. ENT-RCTR-LEX-01
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),
+    _SOURCE_KEY             VARCHAR(100),
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ------------------------------------------------------------
+-- TABLE: DIM_PROCESS_STEP
+-- Domain      : Equipment & Asset (Process Definition)
+-- Description : Reference table of all validated process steps
+--               that appear in batch manufacturing records.
+--               Defines the canonical step vocabulary used
+--               across all products and facilities. Step codes
+--               are the canonical identifiers that replace
+--               the inconsistent step naming found across
+--               source systems. Each step carries its typical
+--               sequence position, expected duration range,
+--               and the parameter codes that are monitored
+--               during that step.
+-- ISA-95 Ref  : Process segment definition.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS DIM_PROCESS_STEP (
+    PROCESS_STEP_KEY        NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    STEP_CODE               VARCHAR(40)  NOT NULL UNIQUE,        -- [MANDATORY] Canonical step code. e.g. CELL-CULTURE | HARVEST | PURIF-UF | FILL | LYO
+    STEP_NAME               VARCHAR(100) NOT NULL,               -- [MANDATORY] Full step name. e.g. Cell Culture | Ultrafiltration | Lyophilization
+    STEP_CATEGORY           VARCHAR(60)  NOT NULL,               -- [MANDATORY] Category. e.g. UPSTREAM | DOWNSTREAM | FILL_FINISH | QUALITY | STORAGE
+    STEP_SUBCATEGORY        VARCHAR(60),                         -- Subcategory. e.g. FERMENTATION | CHROMATOGRAPHY | PRIMARY_PACKAGING
+    TYPICAL_SEQUENCE_ORDER  NUMBER,                              -- Typical position in the full process sequence. e.g. 1 | 2 | 3
+    EXPECTED_DURATION_MIN_HRS DECIMAL(8,2),                      -- Minimum expected duration in hours. e.g. 12.00
+    EXPECTED_DURATION_MAX_HRS DECIMAL(8,2),                      -- Maximum expected duration in hours. e.g. 24.00
+    APPLICABLE_ASSET_CLASSES VARCHAR(200),                       -- Comma-separated asset classes this step uses. e.g. Bioreactor,Mixing Tank
+    IS_CCP                  BOOLEAN      NOT NULL DEFAULT FALSE, -- TRUE if this is a Critical Control Point per HACCP
+    IS_ACTIVE               BOOLEAN      NOT NULL DEFAULT TRUE,  -- [MANDATORY] FALSE if step has been retired from use
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),
+    _SOURCE_KEY             VARCHAR(100),
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ============================================================
+-- DOMAIN 4: PROCESS PARAMETER SPECIFICATION
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- TABLE: DIM_PROCESS_PARAMETER
+-- Domain      : Process Parameter Specification
+-- Description : Reference table of all process parameters
+--               monitored during manufacturing. Each row
+--               defines one parameter — its canonical code,
+--               unit of measure, specification limits, and
+--               its classification under regulatory frameworks
+--               (Critical Process Parameter vs Key Process
+--               Attribute). The canonical unit of measure is
+--               always SI or industry-standard — source-system
+--               conflicts (e.g. Fahrenheit in Op System vs
+--               Celsius in Mart A) are resolved here by
+--               declaring the canonical UOM and the conversion
+--               required from each source.
+-- ICH Q8 Ref : Critical Process Parameter (CPP) classification.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS DIM_PROCESS_PARAMETER (
+    PARAMETER_KEY           NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    PARAMETER_CODE          VARCHAR(60)  NOT NULL UNIQUE,        -- [MANDATORY] Canonical parameter code. e.g. TEMP_C | PH | PRESS_BAR | FILL_VOL_ML | DO_PCT | AGIT_RPM
+    PARAMETER_NAME          VARCHAR(150) NOT NULL,               -- [MANDATORY] Full parameter name. e.g. Temperature | pH Level | Chamber Pressure
+    PARAMETER_CATEGORY      VARCHAR(60)  NOT NULL,               -- [MANDATORY] e.g. THERMAL | CHEMICAL | MECHANICAL | BIOLOGICAL | OPTICAL
+    CANONICAL_UOM           VARCHAR(30)  NOT NULL,               -- [MANDATORY] Canonical unit of measure. e.g. C | pH | bar | mL | % | RPM
+    -- Source UOM mapping (conflict resolution registry)
+    SOURCE_UOM_MART_A       VARCHAR(30),                         -- UOM as stored in Mart A. e.g. C (Celsius — matches canonical)
+    SOURCE_UOM_OPS          VARCHAR(30),                         -- UOM as stored in Op System. e.g. F (Fahrenheit — requires conversion)
+    SOURCE_UOM_MART_B       VARCHAR(30),                         -- UOM as stored in Mart B. e.g. C
+    CONVERSION_FORMULA_OPS  VARCHAR(200),                        -- Conversion formula from Op System UOM to canonical. e.g. (VALUE - 32) * 5/9
+    -- ICH Q8 classification
+    IS_CPP                  BOOLEAN      NOT NULL DEFAULT FALSE, -- TRUE if Critical Process Parameter — directly impacts product quality
+    IS_KPA                  BOOLEAN      NOT NULL DEFAULT FALSE, -- TRUE if Key Process Attribute — monitored but not directly critical
+    -- Typical specification limits (product-step specific limits in FACT_BATCH_STEP)
+    TYPICAL_TARGET          DECIMAL(18,4),                       -- Typical target value across products. e.g. 37.0000
+    TYPICAL_LSL             DECIMAL(18,4),                       -- Typical lower specification limit. e.g. 36.0000
+    TYPICAL_USL             DECIMAL(18,4),                       -- Typical upper specification limit. e.g. 38.0000
+    MEASUREMENT_FREQUENCY   VARCHAR(50),                         -- How often measured. e.g. CONTINUOUS | EVERY_5_MIN | HOURLY | PER_STEP
+    INSTRUMENT_TYPE         VARCHAR(100),                        -- Instrument that measures this parameter. e.g. PT100 Thermocouple | pH Probe | Pressure Transducer
+    IS_ACTIVE               BOOLEAN      NOT NULL DEFAULT TRUE,  -- [MANDATORY]
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),
+    _SOURCE_KEY             VARCHAR(100),
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ============================================================
+-- DOMAIN 5: QUALITY
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- TABLE: DIM_QUALITY_DISPOSITION
+-- Domain      : Quality
+-- Description : Reference table of all batch quality disposition
+--               states. Canonical superset of disposition codes
+--               from all source systems. Defines the regulatory
+--               implications, release eligibility, and
+--               investigation requirements associated with each
+--               disposition state. Aligned with ICH Q10
+--               pharmaceutical quality system requirements.
+-- ICH Q10 Ref : Product realisation and quality monitoring.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS DIM_QUALITY_DISPOSITION (
+    DISPOSITION_KEY         NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    DISPOSITION_CODE        VARCHAR(40)  NOT NULL UNIQUE,        -- [MANDATORY] Canonical code. e.g. RELEASED | ON_HOLD | REJECTED | PENDING_QA
+    DISPOSITION_NAME        VARCHAR(100) NOT NULL,               -- [MANDATORY] Full name. e.g. Batch Released for Distribution
+    REQUIRES_INVESTIGATION  BOOLEAN      NOT NULL DEFAULT FALSE, -- [MANDATORY] TRUE if formal quality investigation is mandatory
+    COMMERCIALLY_RELEASABLE BOOLEAN      NOT NULL DEFAULT FALSE, -- [MANDATORY] TRUE if batch may be shipped commercially
+    DEVIATION_IMPLIED       BOOLEAN      NOT NULL DEFAULT FALSE, -- TRUE if disposition implies presence of a quality deviation
+    PATIENT_RISK_LEVEL      VARCHAR(20),                         -- Risk classification. e.g. NONE | LOW | MEDIUM | HIGH | CRITICAL
+    REGULATORY_NOTIFICATION_REQUIRED BOOLEAN NOT NULL DEFAULT FALSE, -- TRUE if disposition requires regulatory agency notification
+    DISPOSITION_DESCRIPTION VARCHAR(500),                        -- Full business description of this disposition state
+    IS_ACTIVE               BOOLEAN      NOT NULL DEFAULT TRUE,  -- [MANDATORY]
+    -- Source code crosswalk
+    SOURCE_CODE_MART_A      VARCHAR(40),                         -- Equivalent code in Mart A. e.g. completed | on_hold
+    SOURCE_CODE_MART_B      VARCHAR(40),                         -- Equivalent code in Mart B. e.g. RELEASED | ON_HOLD
+    SOURCE_CODE_OPS         VARCHAR(10),                         -- Equivalent code in Op System. e.g. COMP | HOLD | REL
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),
+    _SOURCE_KEY             VARCHAR(100),
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ------------------------------------------------------------
+-- TABLE: DIM_DEVIATION_CATEGORY
+-- Domain      : Quality
+-- Description : Reference table classifying the types of
+--               quality deviation events that can occur during
+--               manufacturing. Provides a controlled vocabulary
+--               for deviation classification aligned with ICH Q10
+--               and GMP expectations. Used to categorize
+--               deviation records in FACT_DEVIATION for
+--               trend analysis and root cause investigation.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS DIM_DEVIATION_CATEGORY (
+    DEVIATION_CATEGORY_KEY  NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    CATEGORY_CODE           VARCHAR(50)  NOT NULL UNIQUE,        -- [MANDATORY] Category code. e.g. PROCESS_PARAMETER | EQUIPMENT_FAILURE | MATERIAL_DEFECT
+    CATEGORY_NAME           VARCHAR(100) NOT NULL,               -- [MANDATORY] Full category name. e.g. Process Parameter Out of Specification
+    CATEGORY_GROUP          VARCHAR(80),                         -- High-level grouping. e.g. PROCESS | EQUIPMENT | MATERIAL | ENVIRONMENTAL | PROCEDURAL
+    DESCRIPTION             VARCHAR(500),                        -- Business description of this deviation category
+    CAPA_TYPICALLY_REQUIRED BOOLEAN      NOT NULL DEFAULT FALSE, -- TRUE if CAPA is typically required for this category
+    IS_ACTIVE               BOOLEAN      NOT NULL DEFAULT TRUE,  -- [MANDATORY]
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ============================================================
+-- DOMAIN 6: WORKFORCE
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- TABLE: DIM_OPERATOR
+-- Domain      : Workforce
+-- Description : Master of all manufacturing personnel who
+--               interact with the batch record system. Includes
+--               operators, technicians, engineers, supervisors,
+--               and QA reviewers. Required for electronic
+--               signature compliance under 21 CFR Part 11
+--               and for ALCOA+ attributability — every action
+--               recorded in a batch record must be attributable
+--               to an identified, trained individual.
+-- 21 CFR 11   : Electronic signature subject.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS DIM_OPERATOR (
+    OPERATOR_KEY            NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    OPERATOR_ID             VARCHAR(50)  NOT NULL UNIQUE,        -- [MANDATORY] System operator ID. e.g. OPR-112 | qa_01
+    FULL_NAME               VARCHAR(200) NOT NULL,               -- [MANDATORY] Full legal name for audit trail
+    ROLE_CODE               VARCHAR(50)  NOT NULL,               -- [MANDATORY] Role. e.g. OPERATOR | TECHNICIAN | SUPERVISOR | QA_ANALYST | ENGINEER
+    FACILITY_KEY            NUMBER       REFERENCES DIM_FACILITY(FACILITY_KEY), -- Primary facility assignment
+    DEPARTMENT              VARCHAR(100),                        -- Department. e.g. Manufacturing | Quality Assurance | Process Engineering
+    IS_GMP_TRAINED          BOOLEAN      NOT NULL DEFAULT TRUE,  -- [MANDATORY] TRUE if current GMP training is on file
+    TRAINING_EXPIRY_DATE    DATE,                                -- GMP training expiry date
+    ESIGNATURE_ENABLED      BOOLEAN      NOT NULL DEFAULT FALSE, -- TRUE if operator is authorized for electronic signatures
+    EMPLOYMENT_STATUS       VARCHAR(30)  NOT NULL DEFAULT 'ACTIVE', -- [MANDATORY] ACTIVE | INACTIVE | TERMINATED | CONTRACTOR
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),
+    _SOURCE_KEY             VARCHAR(100),
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ============================================================
+-- DOMAIN 7: BATCH EXECUTION  (Fact Tables)
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- TABLE: FACT_PRODUCTION_ORDER
+-- Domain      : Batch Execution
+-- Description : Canonical production order — the formal
+--               authorization to manufacture a batch. One row
+--               per enterprise batch. The root fact record
+--               linking the planning intent (ERP production
+--               order) to the execution outcome (batch record).
+--               Contains both the ERP-side order number and
+--               the MES-side canonical batch identifier,
+--               resolving the dual-identifier conflict between
+--               the operational system and analytics mart.
+-- ISA-95 Ref  : Production request and production response.
+-- Grain       : One row per production order / enterprise batch.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS FACT_PRODUCTION_ORDER (
+    PRODUCTION_ORDER_KEY    NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    CANONICAL_BATCH_ID      VARCHAR(50)  NOT NULL UNIQUE,        -- [MANDATORY] Canonical batch identifier. e.g. B-5502
+    ERP_ORDER_NUMBER        VARCHAR(50),                         -- ERP/SAP production order number. e.g. PO-2026-5502
+    MES_BATCH_REFERENCE     VARCHAR(80),                         -- MES internal batch reference. e.g. RUN-20260710-05 (Mart A format)
+    GMP_LOT_NUMBER          VARCHAR(80),                         -- GMP lot number assigned to output. e.g. LOT-2026-5502
+    -- Dimension foreign keys
+    FACILITY_KEY            NUMBER       NOT NULL REFERENCES DIM_FACILITY(FACILITY_KEY),   -- [MANDATORY]
+    PRODUCT_KEY             NUMBER       NOT NULL REFERENCES DIM_PRODUCT(PRODUCT_KEY),     -- [MANDATORY]
+    PRIMARY_EQUIPMENT_KEY   NUMBER       REFERENCES DIM_EQUIPMENT(EQUIPMENT_KEY),          -- Primary equipment used
+    DISPOSITION_KEY         NUMBER       REFERENCES DIM_QUALITY_DISPOSITION(DISPOSITION_KEY),
+    -- Order planning
+    PLANNED_START_UTC       TIMESTAMP_TZ NOT NULL,               -- [MANDATORY] Planned batch start in UTC. e.g. 2026-07-10 08:00:00+00
+    PLANNED_END_UTC         TIMESTAMP_TZ,                        -- Planned batch completion in UTC
+    PLANNED_QUANTITY        DECIMAL(18,3) NOT NULL,              -- [MANDATORY] Planned output quantity. e.g. 250.000
+    QUANTITY_UOM            VARCHAR(20)  NOT NULL,               -- [MANDATORY] Unit of measure. e.g. L | vials | kg
+    -- Actual execution
+    ACTUAL_START_UTC        TIMESTAMP_TZ,                        -- [CONDITIONAL] Actual start in UTC — mandatory once batch begins
+    ACTUAL_END_UTC          TIMESTAMP_TZ,                        -- Actual completion in UTC. NULL if in progress
+    ACTUAL_QUANTITY         DECIMAL(18,3),                       -- Actual quantity produced. NULL if in progress
+    -- Outcomes
+    YIELD_PCT               DECIMAL(6,3),                        -- Overall batch yield %. e.g. 98.200
+    YIELD_VARIANCE_PCT      DECIMAL(8,4),                        -- Yield vs standard yield target. e.g. 0.2000 (above) | -2.3000 (below)
+    -- OEE components (pre-computed)
+    OEE_AVAILABILITY_PCT    DECIMAL(6,3),                        -- OEE Availability component. e.g. 96.300
+    OEE_PERFORMANCE_PCT     DECIMAL(6,3),                        -- OEE Performance component. e.g. 84.000
+    OEE_QUALITY_PCT         DECIMAL(6,3),                        -- OEE Quality component. e.g. 99.500
+    OEE_OVERALL_PCT         DECIMAL(6,3),                        -- Overall OEE = Avail x Perf x Quality / 10000. e.g. 80.300
+    -- Status
+    BATCH_STATUS            VARCHAR(30)  NOT NULL,               -- [MANDATORY] Canonical status. e.g. ACTIVE | COMPLETED | ON_HOLD | CANCELLED
+    DEVIATION_COUNT         NUMBER       NOT NULL DEFAULT 0,      -- [MANDATORY] Total deviations associated with this batch
+    IS_GOLDEN_BATCH         BOOLEAN      NOT NULL DEFAULT FALSE,  -- TRUE if this batch is designated as a Golden Batch reference
+    GOLDEN_BATCH_REFERENCE  VARCHAR(50),                         -- If not golden, reference to the golden batch for comparison
+    -- Shift context (from Mart A — unique to site mart)
+    SHIFT_AT_START          VARCHAR(20),                         -- Shift when batch started. e.g. Day | Evening | Night
+    SHIFT_SUPERVISOR_KEY    NUMBER       REFERENCES DIM_OPERATOR(OPERATOR_KEY),
+    -- Source alternate keys
+    SOURCE_BATCH_ID_MART_A  VARCHAR(50),                         -- Batch ID as stored in Mart A. e.g. BATCH-LEX-5502
+    SOURCE_BATCH_ID_OPS     VARCHAR(50),                         -- Batch ID in Op System. e.g. B-5502 (matches canonical)
+    SOURCE_ORDER_NUM_OPS    VARCHAR(50),                         -- Production order number in Op System. e.g. PO-2026-5502
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),
+    _SOURCE_KEY             VARCHAR(100),
+    _LOADED_AT_UTC          TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ------------------------------------------------------------
+-- TABLE: FACT_BATCH_STEP
+-- Domain      : Batch Execution
+-- Description : Step-level execution records for each batch.
+--               One row per process step within a production
+--               order. Captures the who, what, when, and
+--               outcome of every manufacturing step. This
+--               grain exists in the Operational System and
+--               Mart A but NOT in Mart B (which only holds
+--               batch-level summaries). The canonical model
+--               preserves step-level detail as a foundational
+--               requirement for process analytics, Golden Batch
+--               comparison, and AI model training.
+-- ISA-95 Ref  : Production performance at segment level.
+-- Grain       : One row per batch step execution.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS FACT_BATCH_STEP (
+    BATCH_STEP_KEY          NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    PRODUCTION_ORDER_KEY    NUMBER       NOT NULL REFERENCES FACT_PRODUCTION_ORDER(PRODUCTION_ORDER_KEY), -- [MANDATORY]
+    CANONICAL_BATCH_ID      VARCHAR(50)  NOT NULL,               -- [MANDATORY] Denormalized batch ID for query convenience
+    PROCESS_STEP_KEY        NUMBER       NOT NULL REFERENCES DIM_PROCESS_STEP(PROCESS_STEP_KEY), -- [MANDATORY]
+    EQUIPMENT_KEY           NUMBER       NOT NULL REFERENCES DIM_EQUIPMENT(EQUIPMENT_KEY),       -- [MANDATORY]
+    STEP_SEQUENCE           NUMBER       NOT NULL,               -- [MANDATORY] Execution order within the batch. e.g. 1 | 2 | 3
+    -- Timing (all UTC)
+    STEP_START_UTC          TIMESTAMP_TZ NOT NULL,               -- [MANDATORY] Step start in UTC
+    STEP_END_UTC            TIMESTAMP_TZ,                        -- Step end in UTC. NULL if in progress
+    STEP_DURATION_HRS       DECIMAL(10,4),                       -- Computed step duration in hours. e.g. 18.0000
+    -- Quantities
+    INPUT_QUANTITY          DECIMAL(18,3),                       -- Input quantity to this step. e.g. 1000.000
+    OUTPUT_QUANTITY         DECIMAL(18,3),                       -- Output quantity from this step. e.g. 982.000
+    QUANTITY_UOM            VARCHAR(20),                         -- Unit of measure for quantities
+    STEP_YIELD_PCT          DECIMAL(6,3),                        -- Step-level yield percentage. e.g. 98.200
+    -- Status
+    STEP_STATUS             VARCHAR(30)  NOT NULL,               -- [MANDATORY] Canonical status. e.g. NOT_STARTED | IN_PROGRESS | COMPLETED | ON_HOLD | CANCELLED | FAILED
+    -- Personnel (21 CFR Part 11)
+    OPERATOR_KEY            NUMBER       REFERENCES DIM_OPERATOR(OPERATOR_KEY),   -- Executing operator
+    VERIFIER_KEY            NUMBER       REFERENCES DIM_OPERATOR(OPERATOR_KEY),   -- Verification operator (dual-person check)
+    ESIGNATURE_TIMESTAMP_UTC TIMESTAMP_TZ,                       -- Electronic signature timestamp in UTC
+    ESIGNATURE_MEANING      VARCHAR(200),                        -- Meaning of signature per 21 CFR 11. e.g. Performed and reviewed by operator
+    -- Deviation link
+    HAS_DEVIATION           BOOLEAN      NOT NULL DEFAULT FALSE, -- TRUE if one or more deviations are linked to this step
+    DEVIATION_COUNT         NUMBER       NOT NULL DEFAULT 0,      -- Count of deviations linked to this step
+    -- Step notes
+    STEP_NOTES              VARCHAR(2000),                       -- Operator or supervisor notes for this step
+    -- Source alternate keys
+    SOURCE_RUN_ID_MART_A    VARCHAR(50),                         -- Run ID in Mart A. e.g. RUN-20260710-05
+    SOURCE_STEP_ID_OPS      NUMBER,                              -- BatchStepID in Op System. e.g. 17
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),
+    _SOURCE_KEY             VARCHAR(100),
+    _LOADED_AT_UTC          TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ------------------------------------------------------------
+-- TABLE: FACT_EQUIPMENT_TELEMETRY
+-- Domain      : Batch Execution / Equipment Monitoring
+-- Description : High-resolution process parameter readings
+--               from equipment during batch execution. One
+--               row per parameter reading. Canonical superset
+--               of parameter_reading (Mart A) and
+--               ParameterReading (Op System). All values are
+--               stored in CANONICAL units (e.g. Celsius, bar)
+--               with the original source value preserved for
+--               audit. The Batch_Key link is what enables an
+--               anonymous sensor reading to be traced to a
+--               specific batch, product, and process step —
+--               critical for process analytics and AI models.
+-- Grain       : One row per parameter reading per equipment
+--               per timestamp.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS FACT_EQUIPMENT_TELEMETRY (
+    TELEMETRY_KEY           NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    EQUIPMENT_KEY           NUMBER       NOT NULL REFERENCES DIM_EQUIPMENT(EQUIPMENT_KEY),           -- [MANDATORY]
+    BATCH_STEP_KEY          NUMBER       REFERENCES FACT_BATCH_STEP(BATCH_STEP_KEY),                 -- NULL for non-batch readings (e.g. idle monitoring)
+    PRODUCTION_ORDER_KEY    NUMBER       REFERENCES FACT_PRODUCTION_ORDER(PRODUCTION_ORDER_KEY),     -- Denormalized for query convenience
+    CANONICAL_BATCH_ID      VARCHAR(50),                         -- Denormalized canonical batch ID
+    PARAMETER_KEY           NUMBER       NOT NULL REFERENCES DIM_PROCESS_PARAMETER(PARAMETER_KEY),  -- [MANDATORY]
+    -- Reading timestamp
+    READING_TIMESTAMP_UTC   TIMESTAMP_TZ NOT NULL,               -- [MANDATORY] Reading timestamp in UTC. ALCOA+ contemporaneous requirement
+    -- Canonical values (UOM conversion applied)
+    CANONICAL_VALUE         DECIMAL(18,4) NOT NULL,              -- [MANDATORY] Value in canonical UOM. e.g. 37.0000 (Celsius)
+    CANONICAL_UOM           VARCHAR(30)  NOT NULL,               -- [MANDATORY] Canonical unit. e.g. C | pH | bar | mL
+    -- Original source values (preserved for audit)
+    SOURCE_VALUE            DECIMAL(18,4),                       -- Original value as received from source. e.g. 98.6000 (Fahrenheit)
+    SOURCE_UOM              VARCHAR(30),                         -- Original unit as received. e.g. F
+    CONVERSION_APPLIED      VARCHAR(200),                        -- Formula used to convert. e.g. (98.6 - 32) * 5/9 = 37.0
+    -- Specification limits (in canonical UOM)
+    TARGET_VALUE            DECIMAL(18,4),                       -- Recipe target. e.g. 37.0000
+    LOWER_SPEC_LIMIT        DECIMAL(18,4),                       -- Lower specification limit. e.g. 36.0000
+    UPPER_SPEC_LIMIT        DECIMAL(18,4),                       -- Upper specification limit. e.g. 38.0000
+    LOWER_ALERT_LIMIT       DECIMAL(18,4),                       -- Lower alert limit (early warning). e.g. 36.3000
+    UPPER_ALERT_LIMIT       DECIMAL(18,4),                       -- Upper alert limit (early warning). e.g. 37.7000
+    -- Specification flags
+    WITHIN_SPECIFICATION    BOOLEAN      NOT NULL DEFAULT TRUE,  -- [MANDATORY] TRUE if value within LSL and USL
+    WITHIN_ALERT            BOOLEAN      NOT NULL DEFAULT TRUE,  -- TRUE if value within alert limits
+    DEVIATION_FROM_TARGET   DECIMAL(18,4),                       -- Signed deviation from target. e.g. -0.3000 | 1.7000
+    -- Golden Batch comparison
+    GOLDEN_BATCH_VALUE      DECIMAL(18,4),                       -- Corresponding value from Golden Batch at same elapsed time
+    GOLDEN_BATCH_DEVIATION  DECIMAL(18,4),                       -- Deviation from Golden Batch value
+    -- Aggregation metadata
+    AGGREGATION_TYPE        VARCHAR(30)  NOT NULL DEFAULT 'RAW', -- [MANDATORY] RAW | AVG_1MIN | AVG_5MIN | AVG_1HR
+    SOURCE_SYSTEM_TYPE      VARCHAR(30),                         -- Source of reading. e.g. SCADA | PLC | MANUAL | LIMS
+    -- Source alternate keys
+    SOURCE_READING_ID_MART_A VARCHAR(60),                        -- Reading ID in Mart A. e.g. RDG-LEX-9016
+    SOURCE_READING_ID_OPS   NUMBER,                              -- ReadingID in Op System. e.g. 13
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),
+    _SOURCE_KEY             VARCHAR(100),
+    _LOADED_AT_UTC          TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- ALCOA+ audit (original record — immutable)
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ============================================================
+-- DOMAIN 8: QUALITY EVENTS
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- TABLE: FACT_DEVIATION
+-- Domain      : Quality Events
+-- Description : Canonical deviation record — formal quality
+--               event record for any departure from validated
+--               manufacturing conditions. Canonical superset
+--               of deviation_event (Mart A — site-local,
+--               informal) and Deviation (Op System — formal,
+--               CAPA-linked). Mart A deviations are mapped
+--               to this structure and assigned formal canonical
+--               deviation numbers. All values (parameter
+--               readings) are stored in canonical UOM.
+--               Full CAPA linkage and regulatory notification
+--               tracking included as superset additions.
+-- ICH Q10 Ref : Corrective Action and Preventive Action.
+-- Grain       : One row per formal quality deviation event.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS FACT_DEVIATION (
+    DEVIATION_KEY           NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    CANONICAL_DEVIATION_ID  VARCHAR(60)  NOT NULL UNIQUE,        -- [MANDATORY] Canonical deviation number. e.g. CDEV-2026-00041
+    PRODUCTION_ORDER_KEY    NUMBER       REFERENCES FACT_PRODUCTION_ORDER(PRODUCTION_ORDER_KEY),
+    BATCH_STEP_KEY          NUMBER       REFERENCES FACT_BATCH_STEP(BATCH_STEP_KEY),
+    TELEMETRY_KEY           NUMBER       REFERENCES FACT_EQUIPMENT_TELEMETRY(TELEMETRY_KEY),     -- Triggering reading
+    EQUIPMENT_KEY           NUMBER       REFERENCES DIM_EQUIPMENT(EQUIPMENT_KEY),
+    PARAMETER_KEY           NUMBER       REFERENCES DIM_PROCESS_PARAMETER(PARAMETER_KEY),
+    DEVIATION_CATEGORY_KEY  NUMBER       REFERENCES DIM_DEVIATION_CATEGORY(DEVIATION_CATEGORY_KEY),
+    FACILITY_KEY            NUMBER       REFERENCES DIM_FACILITY(FACILITY_KEY),
+    CANONICAL_BATCH_ID      VARCHAR(50),                         -- Denormalized batch ID
+    -- Detection
+    DETECTED_TIMESTAMP_UTC  TIMESTAMP_TZ NOT NULL,               -- [MANDATORY] When deviation was first detected (UTC)
+    DETECTED_BY_KEY         NUMBER       REFERENCES DIM_OPERATOR(OPERATOR_KEY),
+    DETECTION_METHOD        VARCHAR(80),                         -- How detected. e.g. AUTOMATED_ALARM | OPERATOR_OBSERVATION | LIMS_RESULT | AUDIT
+    -- Classification
+    SEVERITY_CODE           VARCHAR(20)  NOT NULL,               -- [MANDATORY] CRITICAL | HIGH | MEDIUM | LOW
+    POTENTIAL_IMPACT        VARCHAR(200),                        -- Assessed potential impact on product quality or patient safety
+    DEVIATION_DESCRIPTION   VARCHAR(4000) NOT NULL,              -- [MANDATORY] Full formal description of the event
+    -- Investigation
+    INVESTIGATION_STATUS    VARCHAR(30)  NOT NULL DEFAULT 'OPEN', -- [MANDATORY] OPEN | IN_PROGRESS | PENDING_CAPA | CLOSED | CANCELLED
+    ASSIGNED_TO_KEY         NUMBER       REFERENCES DIM_OPERATOR(OPERATOR_KEY),
+    INVESTIGATION_START_UTC TIMESTAMP_TZ,
+    INVESTIGATION_END_UTC   TIMESTAMP_TZ,
+    ROOT_CAUSE_CODE         VARCHAR(80),                         -- Root cause category. e.g. EQUIPMENT_FAILURE | PROCESS_DRIFT | HUMAN_ERROR | MATERIAL
+    ROOT_CAUSE_DESCRIPTION  VARCHAR(2000),
+    -- CAPA
+    CAPA_REQUIRED           BOOLEAN      NOT NULL DEFAULT FALSE, -- [MANDATORY] TRUE if CAPA is required
+    CAPA_REFERENCE_ID       VARCHAR(60),                         -- Linked CAPA record ID. e.g. CAPA-2026-0089
+    CAPA_DUE_DATE           DATE,                                -- CAPA completion due date
+    CAPA_CLOSED_DATE        DATE,                                -- Date CAPA was formally closed
+    -- Resolution
+    CLOSED_TIMESTAMP_UTC    TIMESTAMP_TZ,                        -- Formal closure timestamp
+    CLOSED_BY_KEY           NUMBER       REFERENCES DIM_OPERATOR(OPERATOR_KEY),
+    RESOLUTION_SUMMARY      VARCHAR(4000),                       -- Summary of findings and corrective actions
+    -- Regulatory
+    REGULATORY_NOTIFICATION_REQUIRED BOOLEAN NOT NULL DEFAULT FALSE,
+    REGULATORY_NOTIFIED_DATE DATE,
+    -- Source alternate keys
+    SOURCE_DEV_ID_MART_A    VARCHAR(50),                         -- Deviation ID in Mart A. e.g. DEV-LEX-0004
+    SOURCE_DEV_NUM_OPS      VARCHAR(50),                         -- Deviation number in Op System. e.g. DEV-2026-00043
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),
+    _SOURCE_KEY             VARCHAR(100),
+    _LOADED_AT_UTC          TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ============================================================
+-- DOMAIN 9: YIELD & PERFORMANCE ANALYTICS
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- TABLE: FACT_YIELD_ANALYTICS
+-- Domain      : Yield & Performance Analytics
+-- Description : Pre-aggregated yield and OEE analytics at
+--               configurable time, product, and facility
+--               granularity. Canonical superset of
+--               fact_yield_analysis (Mart B). Extended with
+--               step-level yield breakdowns, CPP compliance
+--               rates, and deviation impact metrics not
+--               available in Mart B. Powers executive
+--               dashboards, trending reports, and the
+--               performance benchmarking layer for AI models.
+-- Grain       : One row per date / facility / product /
+--               aggregation level combination.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS FACT_YIELD_ANALYTICS (
+    YIELD_ANALYTICS_KEY     NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    ANALYSIS_DATE           DATE         NOT NULL,               -- [MANDATORY] Calendar date (UTC) of this analytics record
+    FACILITY_KEY            NUMBER       NOT NULL REFERENCES DIM_FACILITY(FACILITY_KEY),   -- [MANDATORY]
+    PRODUCT_KEY             NUMBER       NOT NULL REFERENCES DIM_PRODUCT(PRODUCT_KEY),     -- [MANDATORY]
+    AGGREGATION_LEVEL       VARCHAR(30)  NOT NULL DEFAULT 'DAILY', -- [MANDATORY] DAILY | WEEKLY | MONTHLY | QUARTERLY
+    -- Batch counts
+    BATCHES_STARTED         NUMBER       NOT NULL DEFAULT 0,      -- Batches started on this date
+    BATCHES_COMPLETED       NUMBER       NOT NULL DEFAULT 0,      -- [MANDATORY] Batches completed on or by this date
+    BATCHES_ON_HOLD         NUMBER       NOT NULL DEFAULT 0,      -- Batches placed on hold
+    BATCHES_FAILED          NUMBER       NOT NULL DEFAULT 0,      -- Batches that failed or were rejected
+    -- Yield metrics
+    AVG_YIELD_PCT           DECIMAL(6,3),                        -- Average yield % across completed batches. e.g. 97.500
+    MIN_YIELD_PCT           DECIMAL(6,3),                        -- Minimum yield % observed. e.g. 95.800
+    MAX_YIELD_PCT           DECIMAL(6,3),                        -- Maximum yield % observed. e.g. 99.600
+    STD_YIELD_PCT           DECIMAL(8,4),                        -- Standard deviation of yield. e.g. 1.3200
+    YIELD_BELOW_TARGET_COUNT NUMBER      NOT NULL DEFAULT 0,      -- Batches below standard yield target
+    YIELD_TARGET_ATTAINMENT_PCT DECIMAL(6,3),                    -- % of batches meeting or exceeding yield target
+    -- Volume metrics
+    TOTAL_PLANNED_QTY       DECIMAL(18,3),                       -- Sum of planned quantities
+    TOTAL_ACTUAL_QTY        DECIMAL(18,3),                       -- Sum of actual quantities produced
+    QUANTITY_UOM            VARCHAR(20),                         -- Unit of measure
+    -- OEE metrics
+    AVG_OEE_PCT             DECIMAL(6,3),                        -- Average OEE across batches. e.g. 80.300
+    AVG_AVAILABILITY_PCT    DECIMAL(6,3),                        -- Average OEE Availability component
+    AVG_PERFORMANCE_PCT     DECIMAL(6,3),                        -- Average OEE Performance component
+    AVG_QUALITY_PCT         DECIMAL(6,3),                        -- Average OEE Quality component
+    -- Quality metrics
+    TOTAL_DEVIATIONS        NUMBER       NOT NULL DEFAULT 0,      -- Total deviations raised in this period
+    HIGH_CRITICAL_DEVIATIONS NUMBER      NOT NULL DEFAULT 0,      -- High or critical severity deviations
+    CPP_COMPLIANCE_RATE_PCT DECIMAL(6,3),                        -- % of CPP readings within specification. e.g. 99.200
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),
+    _SOURCE_KEY             VARCHAR(100),
+    _LOADED_AT_UTC          TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ
+);
+
+-- ============================================================
+-- DOMAIN 10: OPERATIONAL CONTEXT
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- TABLE: FACT_SHIFT_LOG
+-- Domain      : Operational Context
+-- Description : Shift-level operational summaries. Sourced
+--               exclusively from Mart A (Lexington site mart)
+--               — this data has no equivalent in Mart B or the
+--               Operational System and represents a unique
+--               contribution of the site mart to the canonical
+--               model. Extended in the canonical model with
+--               additional facility context and normalized
+--               operator references. Provides shift-level
+--               situational awareness for operational reporting
+--               and AI anomaly detection context.
+-- Grain       : One row per shift per date per facility.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS FACT_SHIFT_LOG (
+    SHIFT_LOG_KEY           NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    FACILITY_KEY            NUMBER       NOT NULL REFERENCES DIM_FACILITY(FACILITY_KEY),   -- [MANDATORY]
+    LOG_DATE                DATE         NOT NULL,               -- [MANDATORY] Calendar date of this shift
+    SHIFT_NAME              VARCHAR(20)  NOT NULL,               -- [MANDATORY] Shift identifier. e.g. Day | Evening | Night
+    SHIFT_START_UTC         TIMESTAMP_TZ,                        -- Shift start in UTC
+    SHIFT_END_UTC           TIMESTAMP_TZ,                        -- Shift end in UTC
+    SUPERVISOR_KEY          NUMBER       REFERENCES DIM_OPERATOR(OPERATOR_KEY),
+    -- Batch activity
+    ACTIVE_BATCHES          NUMBER       NOT NULL DEFAULT 0,      -- [MANDATORY] Batches in progress during this shift
+    COMPLETED_BATCHES       NUMBER       NOT NULL DEFAULT 0,      -- [MANDATORY] Batches completed during this shift
+    NEW_DEVIATIONS          NUMBER       NOT NULL DEFAULT 0,      -- [MANDATORY] New deviations raised during this shift
+    CLOSED_DEVIATIONS       NUMBER       NOT NULL DEFAULT 0,      -- Deviations closed during this shift
+    -- Equipment
+    EQUIPMENT_DOWNTIME_MINS NUMBER       NOT NULL DEFAULT 0,      -- [MANDATORY] Total unplanned equipment downtime in minutes
+    EQUIPMENT_ISSUES_COUNT  NUMBER       NOT NULL DEFAULT 0,      -- Count of equipment issues reported
+    -- Sign-off
+    SIGNED_OFF              BOOLEAN      NOT NULL DEFAULT FALSE,  -- [MANDATORY] TRUE if supervisor has formally signed off
+    SIGNED_OFF_UTC          TIMESTAMP_TZ,                        -- Sign-off timestamp in UTC
+    SHIFT_NOTES             VARCHAR(4000),                       -- Supervisor narrative notes
+    -- Source alternate keys
+    SOURCE_LOG_ID_MART_A    NUMBER,                              -- shift_log_id in Mart A
+    -- Source lineage
+    _SOURCE_SYSTEM          VARCHAR(50),
+    _SOURCE_KEY             VARCHAR(100),
+    _LOADED_AT_UTC          TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    IS_DELETED              BOOLEAN      NOT NULL DEFAULT FALSE,
+    DELETED_AT              TIMESTAMP_TZ,
+    UNIQUE (FACILITY_KEY, LOG_DATE, SHIFT_NAME)
+);
+
+-- ============================================================
+-- DOMAIN 11: LINEAGE & GOVERNANCE (Superset addition)
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- TABLE: CANONICAL_FIELD_REGISTRY
+-- Domain      : Lineage & Governance
+-- Description : Master registry of every field-level mapping
+--               decision made by the agentic consolidation
+--               pipeline. Each row records one source field
+--               mapped to one canonical field, including the
+--               transformation applied, the confidence of the
+--               semantic mapping agent, and the human approval
+--               status. This table is the audit backbone of
+--               the consolidation — it allows any downstream
+--               value to be traced to its source field, the
+--               transformation applied, and the person who
+--               approved the mapping decision.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS CANONICAL_FIELD_REGISTRY (
+    REGISTRY_KEY            NUMBER AUTOINCREMENT PRIMARY KEY,    -- [MANDATORY] Surrogate key
+    CANONICAL_TABLE_NAME    VARCHAR(100) NOT NULL,               -- [MANDATORY] Target canonical table. e.g. FACT_EQUIPMENT_TELEMETRY
+    CANONICAL_FIELD_NAME    VARCHAR(100) NOT NULL,               -- [MANDATORY] Target canonical column. e.g. CANONICAL_VALUE
+    SOURCE_SYSTEM           VARCHAR(50)  NOT NULL,               -- [MANDATORY] Source system. e.g. MART_A | MART_B | OPS_SYSTEM
+    SOURCE_TABLE_NAME       VARCHAR(100) NOT NULL,               -- [MANDATORY] Source table name. e.g. parameter_reading
+    SOURCE_FIELD_NAME       VARCHAR(100) NOT NULL,               -- [MANDATORY] Source column name. e.g. param_value
+    SOURCE_DATA_TYPE        VARCHAR(50),                         -- Source data type. e.g. NUMERIC(18,4) | VARCHAR | NVARCHAR
+    CANONICAL_DATA_TYPE     VARCHAR(50),                         -- Canonical data type. e.g. DECIMAL(18,4)
+    TRANSFORMATION_TYPE     VARCHAR(50),                         -- Type of transformation. e.g. RENAME | UOM_CONVERT | STATUS_MAP | TYPE_CAST | NO_CHANGE
+    TRANSFORMATION_FORMULA  VARCHAR(500),                        -- Transformation formula or rule. e.g. (SOURCE_VALUE - 32) * 5/9
+    MAPPING_CONFIDENCE      VARCHAR(20),                         -- Agent confidence. e.g. HIGH | MEDIUM | LOW
+    MAPPING_AGENT_VERSION   VARCHAR(20),                         -- Version of semantic mapping agent that produced this mapping
+    HUMAN_APPROVAL_STATUS   VARCHAR(20)  NOT NULL DEFAULT 'PENDING', -- [MANDATORY] PENDING | APPROVED | REJECTED | OVERRIDE
+    APPROVED_BY             VARCHAR(100),                        -- Name or ID of approver. e.g. Lloyd Vallance
+    APPROVED_TIMESTAMP_UTC  TIMESTAMP_TZ,                        -- Timestamp of approval
+    REJECTION_REASON        VARCHAR(500),                        -- If rejected, reason provided by reviewer
+    IS_ACTIVE               BOOLEAN      NOT NULL DEFAULT TRUE,  -- [MANDATORY] FALSE if mapping has been superseded
+    EFFECTIVE_FROM_UTC      TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    EFFECTIVE_TO_UTC        TIMESTAMP_TZ,                        -- NULL means currently active mapping
+    NOTES                   VARCHAR(1000),                       -- Additional notes on this mapping decision
+    -- ALCOA+ audit
+    CREATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CREATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER,
+    UPDATED_AT              TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_BY              VARCHAR(100) NOT NULL DEFAULT CURRENT_USER
+);
+
+-- ============================================================
+-- ANALYTICAL VIEWS
+-- ============================================================
+
+CREATE OR REPLACE VIEW VW_ACTIVE_BATCH_STATUS AS
+SELECT
+    po.CANONICAL_BATCH_ID,
+    po.GMP_LOT_NUMBER,
+    f.FACILITY_NAME,
+    f.SITE_CODE,
+    p.PRODUCT_NAME,
+    p.SKU,
+    e.CANONICAL_EQUIPMENT_ID,
+    e.ASSET_CLASS,
+    ps.STEP_NAME                        AS CURRENT_STEP,
+    po.PLANNED_START_UTC,
+    po.ACTUAL_START_UTC,
+    po.PLANNED_QUANTITY,
+    po.QUANTITY_UOM,
+    po.BATCH_STATUS,
+    po.DEVIATION_COUNT,
+    dq.DISPOSITION_CODE,
+    dq.COMMERCIALLY_RELEASABLE
+FROM   FACT_PRODUCTION_ORDER  po
+JOIN   DIM_FACILITY            f   ON f.FACILITY_KEY            = po.FACILITY_KEY
+JOIN   DIM_PRODUCT             p   ON p.PRODUCT_KEY             = po.PRODUCT_KEY
+LEFT   JOIN DIM_EQUIPMENT      e   ON e.EQUIPMENT_KEY           = po.PRIMARY_EQUIPMENT_KEY
+LEFT   JOIN DIM_QUALITY_DISPOSITION dq ON dq.DISPOSITION_KEY   = po.DISPOSITION_KEY
+LEFT   JOIN FACT_BATCH_STEP    bs  ON bs.PRODUCTION_ORDER_KEY   = po.PRODUCTION_ORDER_KEY
+                                  AND bs.STEP_STATUS            = 'IN_PROGRESS'
+LEFT   JOIN DIM_PROCESS_STEP   ps  ON ps.PROCESS_STEP_KEY       = bs.PROCESS_STEP_KEY
+WHERE  po.BATCH_STATUS IN ('ACTIVE','ON_HOLD')
+AND    po.IS_DELETED = FALSE;
+
+CREATE OR REPLACE VIEW VW_CALIBRATION_COMPLIANCE AS
+SELECT
+    e.CANONICAL_EQUIPMENT_ID,
+    e.EQUIPMENT_NAME,
+    e.ASSET_CLASS,
+    f.SITE_CODE,
+    f.FACILITY_NAME,
+    e.LAST_CALIBRATION_DATE,
+    e.CALIBRATION_DUE_DATE,
+    e.CALIBRATION_STATUS,
+    DATEDIFF('day', CURRENT_DATE, e.CALIBRATION_DUE_DATE) AS DAYS_UNTIL_DUE,
+    CASE
+        WHEN e.CALIBRATION_DUE_DATE < CURRENT_DATE          THEN 'OVERDUE'
+        WHEN e.CALIBRATION_DUE_DATE < DATEADD('day',30,CURRENT_DATE) THEN 'DUE_SOON'
+        ELSE 'COMPLIANT'
+    END                                                     AS COMPLIANCE_STATUS
+FROM   DIM_EQUIPMENT e
+JOIN   DIM_FACILITY  f ON f.FACILITY_KEY = e.FACILITY_KEY
+WHERE  e.EQUIPMENT_STATUS  != 'RETIRED'
+AND    e.IS_DELETED = FALSE
+ORDER  BY DAYS_UNTIL_DUE;
+
+CREATE OR REPLACE VIEW VW_OEE_SUMMARY AS
+SELECT
+    f.SITE_CODE,
+    f.FACILITY_NAME,
+    p.PRODUCT_NAME,
+    p.THERAPEUTIC_CLASS,
+    TRUNC(po.ACTUAL_START_UTC, 'DAY')   AS PRODUCTION_DATE,
+    COUNT(*)                            AS BATCH_COUNT,
+    AVG(po.OEE_OVERALL_PCT)             AS AVG_OEE_PCT,
+    AVG(po.OEE_AVAILABILITY_PCT)        AS AVG_AVAILABILITY_PCT,
+    AVG(po.OEE_PERFORMANCE_PCT)         AS AVG_PERFORMANCE_PCT,
+    AVG(po.OEE_QUALITY_PCT)             AS AVG_QUALITY_PCT,
+    AVG(po.YIELD_PCT)                   AS AVG_YIELD_PCT,
+    SUM(po.DEVIATION_COUNT)             AS TOTAL_DEVIATIONS
+FROM   FACT_PRODUCTION_ORDER po
+JOIN   DIM_FACILITY           f  ON f.FACILITY_KEY  = po.FACILITY_KEY  AND f.CURRENT_FLAG = TRUE
+JOIN   DIM_PRODUCT            p  ON p.PRODUCT_KEY   = po.PRODUCT_KEY   AND p.CURRENT_FLAG = TRUE
+WHERE  po.BATCH_STATUS = 'COMPLETED'
+AND    po.IS_DELETED   = FALSE
+GROUP  BY 1,2,3,4,5
+ORDER  BY 5 DESC, 1, 3;

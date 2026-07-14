@@ -1,0 +1,327 @@
+-- ============================================================
+-- MART A: Lexington Site Operational Data Mart
+-- Database: PostgreSQL 14+
+-- Owner: Lexington Automation & OT Team
+-- Purpose: Site-level operational tracking for equipment,
+--          batch runs, process parameters, deviations, and
+--          shift activity at the Lexington manufacturing site.
+-- Note: All timestamps are in US/Eastern (EST/EDT).
+--       Status codes are plain text strings.
+--       Equipment IDs are site-local (LEX- prefix).
+--       No SCD — dimensions are overwritten in place.
+-- ============================================================
+
+CREATE SCHEMA IF NOT EXISTS mart_a;
+SET search_path TO mart_a;
+
+-- ============================================================
+-- TABLE: equipment
+-- Business Definition:
+--   Master registry of all physical manufacturing equipment
+--   installed and operated at the Lexington site. Each row
+--   represents one piece of equipment identified by its
+--   site-local asset code. This table is the primary reference
+--   for linking sensor readings, batch runs, and calibration
+--   events to the physical asset that produced them.
+--   Overwritten in-place when equipment attributes change —
+--   no historical versioning is maintained.
+-- ============================================================
+
+CREATE TABLE mart_a.equipment (
+    equip_id            VARCHAR(30)  PRIMARY KEY,
+    -- Unique site-local equipment identifier (e.g. LEX-RCTR-01).
+    -- Assigned by the Lexington automation team at installation.
+
+    equip_name          VARCHAR(150) NOT NULL,
+    -- Human-readable descriptive name of the equipment
+    -- (e.g. "Bioreactor 1 - North Wing").
+
+    asset_type          VARCHAR(80)  NOT NULL,
+    -- Broad equipment category such as Bioreactor, Filling Machine,
+    -- Lyophilizer, or Mixing Tank.
+
+    manufacturer        VARCHAR(100),
+    -- Name of the original equipment manufacturer (OEM).
+
+    model_number        VARCHAR(100),
+    -- OEM model designation for this equipment unit.
+
+    install_date        DATE,
+    -- Date the equipment was physically installed at the Lexington site.
+
+    calibration_due     DATE,
+    -- Next scheduled calibration or re-qualification date.
+    -- Used by the site maintenance team to plan preventive work.
+
+    last_calibrated     DATE,
+    -- Date of most recent completed calibration. Null if never calibrated.
+
+    status              VARCHAR(30)  NOT NULL DEFAULT 'active',
+    -- Current operational status of the equipment.
+    -- Values: active | inactive | under_maintenance | retired
+
+    line_id             VARCHAR(30),
+    -- Manufacturing line this equipment belongs to (e.g. LINE-A, LINE-B).
+
+    building            VARCHAR(50),
+    -- Physical building or wing at the Lexington site where the
+    -- equipment is located.
+
+    updated_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+    -- Timestamp of the last update to this record. No history is kept.
+);
+
+-- ============================================================
+-- TABLE: batch_run
+-- Business Definition:
+--   Records every manufacturing batch executed at the Lexington
+--   site, at step-level granularity. Each row represents one
+--   execution of one process step within a batch. A single batch
+--   (identified by batch_id) will have multiple rows — one per
+--   step (e.g. Mixing, Filling, Lyophilization). This is the
+--   primary operational record consulted by shift supervisors
+--   and process engineers to understand batch progress and
+--   outcomes at the Lexington site.
+-- ============================================================
+
+CREATE TABLE mart_a.batch_run (
+    run_id              VARCHAR(50)  PRIMARY KEY,
+    -- Unique identifier for this batch step execution record.
+    -- Format: RUN-YYYYMMDD-NN (e.g. RUN-20260710-04).
+
+    batch_id            VARCHAR(50)  NOT NULL,
+    -- Parent batch identifier grouping all steps of one production run.
+    -- This is a site-local identifier; may not match enterprise batch IDs.
+
+    equip_id            VARCHAR(30)  NOT NULL REFERENCES mart_a.equipment(equip_id),
+    -- Equipment that performed this step. Links to the equipment table.
+
+    product_code        VARCHAR(50)  NOT NULL,
+    -- Site-local product code identifying what was manufactured.
+    -- May differ from enterprise SKU codes in Mart B.
+
+    step_name           VARCHAR(100) NOT NULL,
+    -- Name of the process step performed in this run record.
+    -- Examples: Cell Culture, Filling, Lyophilization, Mixing, QC Hold.
+
+    step_seq            INTEGER      NOT NULL,
+    -- Sequence number indicating the order of this step within the batch.
+
+    start_ts            TIMESTAMP    NOT NULL,
+    -- Timestamp when this step began. Stored in US/Eastern local time.
+
+    end_ts              TIMESTAMP,
+    -- Timestamp when this step completed. Null if still in progress.
+
+    planned_qty         NUMERIC(18,3),
+    -- Planned production quantity for this step (units depend on product).
+
+    actual_qty          NUMERIC(18,3),
+    -- Actual quantity produced or processed in this step.
+
+    qty_unit            VARCHAR(20),
+    -- Unit of measure for planned and actual quantities (e.g. L, vials, kg).
+
+    yield_pct           NUMERIC(6,3),
+    -- Yield percentage for this step: (actual_qty / planned_qty) * 100.
+    -- Null for steps where yield is not measured.
+
+    batch_status        VARCHAR(30)  NOT NULL DEFAULT 'in_prog',
+    -- Current status of this batch step.
+    -- Values: in_prog | completed | on_hold | cancelled | failed
+
+    operator_id         VARCHAR(50),
+    -- ID of the operator or technician responsible for this step.
+
+    shift               VARCHAR(20),
+    -- Shift during which this step was executed (Day, Evening, Night).
+
+    notes               TEXT,
+    -- Free-text notes entered by the operator or supervisor for this step.
+
+    created_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+    -- Timestamp when this record was first created in the mart.
+);
+
+-- ============================================================
+-- TABLE: parameter_reading
+-- Business Definition:
+--   Stores raw or lightly aggregated sensor readings captured
+--   from equipment during batch step execution. Each row is
+--   one parameter measurement for one piece of equipment at
+--   one point in time. This table is the highest-resolution
+--   process data available at the Lexington site and is the
+--   foundation for process trend analysis, deviation detection,
+--   and Golden Batch comparison. Readings are linked to both
+--   the equipment and the batch step that was running at the
+--   time of the reading.
+-- ============================================================
+
+CREATE TABLE mart_a.parameter_reading (
+    reading_id          VARCHAR(60)  PRIMARY KEY,
+    -- Unique identifier for this sensor reading record.
+
+    equip_id            VARCHAR(30)  NOT NULL REFERENCES mart_a.equipment(equip_id),
+    -- Equipment from which this reading was captured.
+
+    run_id              VARCHAR(50)  REFERENCES mart_a.batch_run(run_id),
+    -- Batch step run during which this reading was captured.
+    -- Null if the reading was captured outside of a batch run.
+
+    batch_id            VARCHAR(50),
+    -- Batch identifier at time of reading. Denormalized for query convenience.
+
+    param_code          VARCHAR(60)  NOT NULL,
+    -- Short code identifying the parameter being measured.
+    -- Examples: TEMP, PH, PRESSURE, FILL_VOL, AGIT_SPEED.
+
+    reading_ts          TIMESTAMP    NOT NULL,
+    -- Timestamp of this reading. Stored in US/Eastern local time.
+
+    param_value         NUMERIC(18,4) NOT NULL,
+    -- Numeric value of the measured parameter.
+
+    uom                 VARCHAR(20)  NOT NULL,
+    -- Unit of measure for param_value.
+    -- Examples: C (Celsius), pH, PSI, mL, RPM.
+    -- NOTE: Temperature is always in Celsius in this mart.
+
+    target_val          NUMERIC(18,4),
+    -- Expected or target value for this parameter per the batch recipe.
+
+    lower_limit         NUMERIC(18,4),
+    -- Lower specification limit. Reading below this triggers a deviation.
+
+    upper_limit         NUMERIC(18,4),
+    -- Upper specification limit. Reading above this triggers a deviation.
+
+    in_spec             BOOLEAN      NOT NULL DEFAULT TRUE,
+    -- TRUE if param_value is within lower_limit and upper_limit.
+    -- FALSE flags a potential out-of-specification event.
+
+    aggregation         VARCHAR(30)  DEFAULT 'RAW',
+    -- Indicates whether this is a raw reading or an aggregated value.
+    -- Values: RAW | AVG_1_MIN | AVG_5_MIN | AVG_1_HR
+
+    ingested_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+    -- Timestamp when this record was loaded into the mart.
+);
+
+-- ============================================================
+-- TABLE: deviation_event
+-- Business Definition:
+--   Tracks quality deviations detected at the Lexington site
+--   during manufacturing operations. A deviation is any event
+--   where a process parameter, batch condition, or equipment
+--   behavior falls outside the validated acceptable range.
+--   Each row records one discrete deviation event, its severity,
+--   current investigation status, and resolution details.
+--   This table is site-local and does not integrate with the
+--   enterprise CAPA or QMS systems — it is managed entirely
+--   by the Lexington quality team.
+-- ============================================================
+
+CREATE TABLE mart_a.deviation_event (
+    deviation_id        VARCHAR(50)  PRIMARY KEY,
+    -- Unique site-local identifier for this deviation event.
+    -- Format: DEV-LEX-NNNN (e.g. DEV-LEX-0041).
+
+    batch_id            VARCHAR(50)  NOT NULL,
+    -- Batch during which this deviation was detected.
+
+    run_id              VARCHAR(50)  REFERENCES mart_a.batch_run(run_id),
+    -- Specific batch step run associated with this deviation.
+
+    equip_id            VARCHAR(30)  REFERENCES mart_a.equipment(equip_id),
+    -- Equipment involved in or associated with this deviation.
+
+    reading_id          VARCHAR(60)  REFERENCES mart_a.parameter_reading(reading_id),
+    -- Sensor reading that triggered this deviation, if applicable.
+
+    detected_ts         TIMESTAMP    NOT NULL,
+    -- Timestamp when the deviation was first detected or reported.
+
+    param_code          VARCHAR(60),
+    -- Parameter code that was out of specification, if parameter-related.
+
+    deviation_desc      TEXT         NOT NULL,
+    -- Free-text description of what occurred and what was observed.
+
+    severity            VARCHAR(20)  NOT NULL DEFAULT 'medium',
+    -- Assessed severity of this deviation.
+    -- Values: low | medium | high | critical
+
+    dev_status          VARCHAR(30)  NOT NULL DEFAULT 'open',
+    -- Current status of the deviation investigation and resolution.
+    -- Values: open | investigating | resolved | closed
+
+    assigned_to         VARCHAR(100),
+    -- Name or ID of the person assigned to investigate this deviation.
+
+    resolved_ts         TIMESTAMP,
+    -- Timestamp when this deviation was resolved. Null if still open.
+
+    resolution_notes    TEXT,
+    -- Summary of the investigation findings and corrective actions taken.
+
+    created_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+    -- Timestamp when this deviation record was first created.
+);
+
+-- ============================================================
+-- TABLE: shift_log
+-- Business Definition:
+--   Records shift-level operational summaries for the Lexington
+--   site. Each row represents one shift (Day, Evening, or Night)
+--   on one date. Shift logs capture the overall health of
+--   manufacturing operations during that shift — batches active,
+--   deviations raised, equipment issues, and supervisor sign-off.
+--   This table is unique to Mart A and has no equivalent in the
+--   enterprise Mart B or the operational system. It provides
+--   shift-level context that is otherwise lost in batch-level
+--   aggregations.
+-- ============================================================
+
+CREATE TABLE mart_a.shift_log (
+    shift_log_id        BIGINT       GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    -- System-generated unique identifier for this shift log entry.
+
+    log_date            DATE         NOT NULL,
+    -- Calendar date of this shift.
+
+    shift               VARCHAR(20)  NOT NULL,
+    -- Shift name. Values: Day | Evening | Night
+
+    supervisor_id       VARCHAR(50),
+    -- ID of the shift supervisor responsible for this shift.
+
+    supervisor_name     VARCHAR(150),
+    -- Full name of the shift supervisor.
+
+    active_batches      INTEGER      NOT NULL DEFAULT 0,
+    -- Number of batches that were in progress during this shift.
+
+    completed_batches   INTEGER      NOT NULL DEFAULT 0,
+    -- Number of batches completed during this shift.
+
+    new_deviations      INTEGER      NOT NULL DEFAULT 0,
+    -- Number of new deviation events raised during this shift.
+
+    equip_downtime_min  INTEGER      NOT NULL DEFAULT 0,
+    -- Total minutes of unplanned equipment downtime during this shift.
+
+    shift_notes         TEXT,
+    -- General narrative notes entered by the supervisor at shift end.
+
+    signed_off          BOOLEAN      NOT NULL DEFAULT FALSE,
+    -- Indicates whether the supervisor has formally signed off on this log.
+
+    signed_off_ts       TIMESTAMP,
+    -- Timestamp of supervisor sign-off. Null if not yet signed off.
+
+    created_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Timestamp when this record was created.
+
+    UNIQUE (log_date, shift)
+    -- Each shift on each date has exactly one log entry.
+);

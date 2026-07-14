@@ -1,0 +1,300 @@
+-- ============================================================
+-- MART B: Enterprise Analytics Data Mart
+-- Database: Snowflake
+-- Owner: Corporate Data Engineering Team
+-- Purpose: Enterprise-wide analytics and executive reporting
+--          across all manufacturing sites. Provides aggregated,
+--          product-centric, yield-focused, and quality-summary
+--          views of manufacturing performance. Designed for
+--          BI dashboards and leadership reporting.
+-- Note: All timestamps in UTC.
+--       Status codes follow enterprise standard nomenclature.
+--       Batch IDs match enterprise format (B-XXXX).
+--       Uses SCD Type 2 on product and facility dimensions.
+--       No step-level or sensor-level data — batch grain only.
+--       Facility codes use enterprise naming (FAC-XXX format).
+-- ============================================================
+
+-- ============================================================
+-- TABLE: dim_facility
+-- Business Definition:
+--   Enterprise master of all manufacturing facilities across
+--   the organization. Each row represents one version of one
+--   facility record — SCD Type 2 is applied, so changes to
+--   facility attributes (e.g. GMP status, timezone) create
+--   a new version row rather than overwriting the existing one.
+--   This ensures that historical batch records always point
+--   to the facility definition that was in force at the time
+--   of production, which is required for regulatory traceability.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS mart_b.dim_facility (
+    facility_key          NUMBER AUTOINCREMENT PRIMARY KEY,
+    -- Surrogate key. System-generated, used for all foreign key joins.
+
+    facility_id           VARCHAR(30) NOT NULL,
+    -- Enterprise facility code. Format: FAC-XXX-NN.
+    -- Assigned by the Corporate Real Estate and GMP teams.
+
+    facility_name         VARCHAR(150) NOT NULL,
+    -- Full official name of the facility.
+
+    site_code             VARCHAR(20) NOT NULL,
+    -- Short site code used in batch records and reporting (e.g. LEX, NR, SD).
+
+    city                  VARCHAR(100),
+    -- City where the facility is located.
+
+    state_region          VARCHAR(100),
+    -- State or region of the facility.
+
+    country_code          CHAR(2) NOT NULL,
+    -- ISO 3166-1 alpha-2 country code (e.g. US, DE, JP).
+
+    timezone_name         VARCHAR(80) NOT NULL,
+    -- IANA timezone name for the facility (e.g. America/New_York).
+
+    gmp_certified         BOOLEAN NOT NULL DEFAULT TRUE,
+    -- Indicates whether this facility holds current GMP certification.
+
+    effective_start_date  DATE NOT NULL,
+    -- Date from which this version of the facility record is valid.
+
+    effective_end_date    DATE,
+    -- Date on which this version of the facility record expired.
+    -- NULL means this is the current active version.
+
+    current_flag          BOOLEAN NOT NULL DEFAULT TRUE
+    -- TRUE for the currently active version of this facility record.
+);
+
+-- ============================================================
+-- TABLE: dim_product
+-- Business Definition:
+--   Enterprise product master for all oncology drug products
+--   manufactured across the organization. Each row represents
+--   one version of one product record under SCD Type 2, ensuring
+--   that recipe changes, formulation updates, or yield target
+--   revisions do not retroactively alter historical batch records.
+--   This is the authoritative source of product metadata for
+--   executive reporting and regulatory submissions.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS mart_b.dim_product (
+    product_key           NUMBER AUTOINCREMENT PRIMARY KEY,
+    -- Surrogate key for joins from fact tables.
+
+    product_id            VARCHAR(50) NOT NULL,
+    -- Enterprise product identifier. Matches the MES product code
+    -- in the operational system.
+
+    sku                   VARCHAR(60) NOT NULL,
+    -- Stock Keeping Unit code used in commercial and supply chain systems.
+
+    product_name          VARCHAR(150) NOT NULL,
+    -- Official product name as registered with regulatory authorities.
+
+    formulation_id        VARCHAR(60),
+    -- Formulation identifier linking to the validated drug substance
+    -- or drug product formulation specification.
+
+    dosage_form           VARCHAR(80),
+    -- Pharmaceutical dosage form (e.g. Lyophilized Powder, Liquid Injectable).
+
+    therapeutic_class     VARCHAR(100) NOT NULL,
+    -- Therapeutic class of the drug product (e.g. Monoclonal Antibody,
+    -- Small Molecule, Bispecific Antibody).
+
+    standard_yield_pct    NUMBER(6,3),
+    -- Validated standard yield percentage for this product. Used as
+    -- the benchmark for yield variance analysis in executive reports.
+
+    effective_start_date  DATE NOT NULL,
+    -- Date from which this version of the product record is valid.
+
+    effective_end_date    DATE,
+    -- Date on which this version expired. NULL = currently active.
+
+    current_flag          BOOLEAN NOT NULL DEFAULT TRUE
+    -- TRUE for the currently active version of this product record.
+);
+
+-- ============================================================
+-- TABLE: dim_quality_disposition
+-- Business Definition:
+--   Reference table defining all possible quality disposition
+--   states that a batch can be assigned by the Quality Assurance
+--   team. Each row represents one distinct disposition state,
+--   including its regulatory implications, whether it requires
+--   an investigation, and whether the batch is eligible for
+--   commercial release. This dimension is static and not subject
+--   to SCD — it changes only when QA policy is updated.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS mart_b.dim_quality_disposition (
+    disposition_key       NUMBER AUTOINCREMENT PRIMARY KEY,
+    -- Surrogate key.
+
+    disposition_code      VARCHAR(40) NOT NULL UNIQUE,
+    -- Short enterprise standard code for this disposition state.
+    -- Examples: RELEASED, ON_HOLD, REJECTED, PENDING_QA, IN_PROCESS.
+
+    disposition_name      VARCHAR(100) NOT NULL,
+    -- Full descriptive name of the disposition state.
+
+    requires_investigation BOOLEAN NOT NULL DEFAULT FALSE,
+    -- TRUE if this disposition state mandates a formal quality investigation.
+
+    commercially_releasable BOOLEAN NOT NULL DEFAULT FALSE,
+    -- TRUE if a batch in this disposition state is eligible for
+    -- commercial release and shipment to customers.
+
+    deviation_implied     BOOLEAN NOT NULL DEFAULT FALSE,
+    -- TRUE if this disposition state implies the presence of one or
+    -- more quality deviations associated with the batch.
+
+    description           VARCHAR(500)
+    -- Business description of when and how this disposition is assigned.
+);
+
+-- ============================================================
+-- TABLE: fact_batch_summary
+-- Business Definition:
+--   Core fact table of the enterprise analytics mart. Each row
+--   represents the complete summary of one manufacturing batch
+--   across its entire lifecycle — from start to quality release.
+--   This is a batch-level grain (one row per batch), not step
+--   level. It is the primary source for executive KPI dashboards
+--   covering OEE, yield, throughput, and quality performance
+--   across all sites. Derived metrics such as OEE components
+--   are pre-computed and stored here to support fast BI queries.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS mart_b.fact_batch_summary (
+    batch_summary_key     NUMBER AUTOINCREMENT PRIMARY KEY,
+    -- Surrogate key.
+
+    enterprise_batch_id   VARCHAR(50) NOT NULL UNIQUE,
+    -- Enterprise-standard batch identifier. Format: B-NNNN.
+    -- This is the authoritative batch ID across the organization.
+
+    facility_key          NUMBER NOT NULL REFERENCES mart_b.dim_facility(facility_key),
+    -- Reference to the facility where this batch was manufactured.
+
+    product_key           NUMBER NOT NULL REFERENCES mart_b.dim_product(product_key),
+    -- Reference to the product manufactured in this batch.
+
+    disposition_key       NUMBER REFERENCES mart_b.dim_quality_disposition(disposition_key),
+    -- Reference to the current quality disposition of this batch.
+
+    asset_class           VARCHAR(80),
+    -- Broad class of the primary equipment used (e.g. Bioreactor,
+    -- Filling Machine, Lyophilizer). Denormalized for reporting convenience.
+
+    primary_equipment_code VARCHAR(50),
+    -- Enterprise equipment code of the primary equipment used.
+    -- NOTE: Uses enterprise asset code format — differs from site-local codes.
+
+    batch_status          VARCHAR(30) NOT NULL,
+    -- Current operational status of the batch.
+    -- Enterprise standard values: ACTIVE | COMPLETED | ON_HOLD | CANCELLED
+
+    start_timestamp_utc   TIMESTAMP_TZ NOT NULL,
+    -- Batch start timestamp in UTC with timezone offset.
+
+    end_timestamp_utc     TIMESTAMP_TZ,
+    -- Batch end timestamp in UTC. NULL if batch is still active.
+
+    planned_qty           NUMBER(18,3),
+    -- Planned production quantity for this batch.
+
+    actual_qty            NUMBER(18,3),
+    -- Actual quantity produced in this batch.
+
+    qty_unit              VARCHAR(20),
+    -- Unit of measure for quantities.
+
+    yield_pct             NUMBER(6,3),
+    -- Overall batch yield percentage. NULL if batch not yet complete.
+
+    availability_pct      NUMBER(6,3),
+    -- OEE Availability component: actual run time / planned run time * 100.
+
+    performance_pct       NUMBER(6,3),
+    -- OEE Performance component: actual throughput / ideal throughput * 100.
+
+    quality_pct           NUMBER(6,3),
+    -- OEE Quality component: good units / total units * 100.
+
+    oee_pct               NUMBER(6,3),
+    -- Overall Equipment Effectiveness: Availability x Performance x Quality / 10000.
+
+    deviation_count       NUMBER NOT NULL DEFAULT 0,
+    -- Total number of quality deviations associated with this batch.
+
+    source_site_code      VARCHAR(20) NOT NULL,
+    -- Site code of the originating facility. Supports multi-site filtering.
+
+    loaded_at_utc         TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    -- Timestamp when this record was last loaded or refreshed in the mart.
+);
+
+-- ============================================================
+-- TABLE: fact_yield_analysis
+-- Business Definition:
+--   Supplementary fact table providing yield performance
+--   analytics at daily, product, and facility granularity.
+--   Each row represents the aggregated yield metrics for one
+--   product at one facility on one calendar day. This table
+--   powers trend charts and yield variance reports used by
+--   the manufacturing excellence and supply chain teams to
+--   identify performance patterns across sites and products
+--   over time.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS mart_b.fact_yield_analysis (
+    yield_analysis_key    NUMBER AUTOINCREMENT PRIMARY KEY,
+    -- Surrogate key.
+
+    analysis_date         DATE NOT NULL,
+    -- Calendar date of this yield analysis record (UTC date).
+
+    facility_key          NUMBER NOT NULL REFERENCES mart_b.dim_facility(facility_key),
+    -- Facility this yield analysis covers.
+
+    product_key           NUMBER NOT NULL REFERENCES mart_b.dim_product(product_key),
+    -- Product this yield analysis covers.
+
+    batch_count           NUMBER NOT NULL DEFAULT 0,
+    -- Number of batches completed on this date for this product at this facility.
+
+    avg_yield_pct         NUMBER(6,3),
+    -- Average yield percentage across all completed batches for this
+    -- product, facility, and date.
+
+    min_yield_pct         NUMBER(6,3),
+    -- Minimum yield percentage observed across batches on this date.
+
+    max_yield_pct         NUMBER(6,3),
+    -- Maximum yield percentage observed across batches on this date.
+
+    std_yield_pct         NUMBER(8,4),
+    -- Standard deviation of yield percentages — a measure of
+    -- yield consistency. Low values indicate stable production.
+
+    below_target_count    NUMBER NOT NULL DEFAULT 0,
+    -- Count of batches where yield fell below the standard yield target
+    -- defined in dim_product.standard_yield_pct.
+
+    total_planned_qty     NUMBER(18,3),
+    -- Sum of planned quantities across all batches for this date/product/facility.
+
+    total_actual_qty      NUMBER(18,3),
+    -- Sum of actual quantities produced across all batches.
+
+    qty_unit              VARCHAR(20),
+    -- Unit of measure for quantities.
+
+    loaded_at_utc         TIMESTAMP_TZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    -- Timestamp when this record was last loaded or refreshed.
+);
