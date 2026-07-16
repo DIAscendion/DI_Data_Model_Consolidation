@@ -2,9 +2,9 @@
 
 ```sql
 
--- [DIMENSION] DimOrganization
-CREATE TABLE DimOrganization (
-    OrganizationKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [DIMENSION] DIM_ORGANIZATION
+CREATE TABLE DIM_ORGANIZATION (
+    OrganizationKey INTEGER AUTOINCREMENT,
     OrganizationID VARCHAR(50),
     OrganizationName VARCHAR(200),
     OrganizationType VARCHAR(80),
@@ -22,14 +22,14 @@ CREATE TABLE DimOrganization (
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    CONSTRAINT FK_DimOrganization_ParentOrganization
-        FOREIGN KEY (ParentOrganizationKey)
-        REFERENCES DimOrganization(OrganizationKey)
+    IsCurrent BOOLEAN,
+    ExpiryDate DATE,
+    PRIMARY KEY (OrganizationKey)
 );
 
--- [DIMENSION] DimFacility
-CREATE TABLE DimFacility (
-    FacilityKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [DIMENSION] DIM_FACILITY
+CREATE TABLE DIM_FACILITY (
+    FacilityKey INTEGER AUTOINCREMENT,
     FacilityID VARCHAR(50),
     FacilityName VARCHAR(200),
     FacilityShortName VARCHAR(80),
@@ -57,7 +57,7 @@ CREATE TABLE DimFacility (
     EffectiveStartDate DATE,
     EffectiveEndDate DATE,
     CurrentFlag BOOLEAN,
-    ScdVersion NUMBER,
+    ScdVersion INTEGER,
     SourceSystem VARCHAR(50),
     SourceKey VARCHAR(100),
     CreatedAt TIMESTAMP_TZ,
@@ -66,16 +66,17 @@ CREATE TABLE DimFacility (
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    CONSTRAINT FK_DimFacility_Organization
-        FOREIGN KEY (OrganizationKey)
-        REFERENCES DimOrganization(OrganizationKey)
+    IsCurrent BOOLEAN,
+    ExpiryDate DATE,
+    PRIMARY KEY (FacilityKey),
+    FOREIGN KEY (OrganizationKey) REFERENCES DIM_ORGANIZATION(OrganizationKey)
 );
 
--- [DIMENSION] DimProduct
-CREATE TABLE DimProduct (
-    ProductKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [DIMENSION] DIM_PRODUCT
+CREATE TABLE DIM_PRODUCT (
+    ProductKey INTEGER AUTOINCREMENT,
     ProductID VARCHAR(50),
-    Sku VARCHAR(60),
+    SKU VARCHAR(60),
     ProductName VARCHAR(200),
     ProductShortName VARCHAR(80),
     OrganizationKey INTEGER,
@@ -96,12 +97,12 @@ CREATE TABLE DimProduct (
     StandardYieldPct DECIMAL(6,3),
     YieldLowerAlertPct DECIMAL(6,3),
     YieldLowerActionPct DECIMAL(6,3),
-    ShelfLifeMonths NUMBER,
+    ShelfLifeMonths INTEGER,
     StorageCondition VARCHAR(80),
     EffectiveStartDate DATE,
     EffectiveEndDate DATE,
     CurrentFlag BOOLEAN,
-    ScdVersion NUMBER,
+    ScdVersion INTEGER,
     SourceProductCodeMartA VARCHAR(50),
     SourceProductCodeOps VARCHAR(50),
     SourceSystem VARCHAR(50),
@@ -112,14 +113,15 @@ CREATE TABLE DimProduct (
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    CONSTRAINT FK_DimProduct_Organization
-        FOREIGN KEY (OrganizationKey)
-        REFERENCES DimOrganization(OrganizationKey)
+    IsCurrent BOOLEAN,
+    ExpiryDate DATE,
+    PRIMARY KEY (ProductKey),
+    FOREIGN KEY (OrganizationKey) REFERENCES DIM_ORGANIZATION(OrganizationKey)
 );
 
--- [DIMENSION] DimMaterialLot
-CREATE TABLE DimMaterialLot (
-    MaterialLotKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [DIMENSION] DIM_MATERIAL_LOT
+CREATE TABLE DIM_MATERIAL_LOT (
+    MaterialLotKey INTEGER AUTOINCREMENT,
     LotNumber VARCHAR(80),
     ProductKey INTEGER,
     FacilityKey INTEGER,
@@ -141,17 +143,14 @@ CREATE TABLE DimMaterialLot (
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    CONSTRAINT FK_DimMaterialLot_Product
-        FOREIGN KEY (ProductKey)
-        REFERENCES DimProduct(ProductKey),
-    CONSTRAINT FK_DimMaterialLot_Facility
-        FOREIGN KEY (FacilityKey)
-        REFERENCES DimFacility(FacilityKey)
+    PRIMARY KEY (MaterialLotKey),
+    FOREIGN KEY (ProductKey) REFERENCES DIM_PRODUCT(ProductKey),
+    FOREIGN KEY (FacilityKey) REFERENCES DIM_FACILITY(FacilityKey)
 );
 
--- [DIMENSION] DimEquipment
-CREATE TABLE DimEquipment (
-    EquipmentKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [DIMENSION] DIM_EQUIPMENT
+CREATE TABLE DIM_EQUIPMENT (
+    EquipmentKey INTEGER AUTOINCREMENT,
     CanonicalEquipmentID VARCHAR(50),
     EquipmentName VARCHAR(200),
     FacilityKey INTEGER,
@@ -174,7 +173,7 @@ CREATE TABLE DimEquipment (
     LastCalibrationDate DATE,
     CalibrationDueDate DATE,
     CalibrationStatus VARCHAR(30),
-    PlannedRuntimeMinsPerDay NUMBER,
+    PlannedRuntimeMinsPerDay INTEGER,
     IdealCycleTimeSecs DECIMAL(12,4),
     EquipmentStatus VARCHAR(30),
     StatusEffectiveDate DATE,
@@ -190,19 +189,21 @@ CREATE TABLE DimEquipment (
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    CONSTRAINT FK_DimEquipment_Facility
-        FOREIGN KEY (FacilityKey)
-        REFERENCES DimFacility(FacilityKey)
+    IsCurrent BOOLEAN,
+    EffectiveDate DATE,
+    ExpiryDate DATE,
+    PRIMARY KEY (EquipmentKey),
+    FOREIGN KEY (FacilityKey) REFERENCES DIM_FACILITY(FacilityKey)
 );
 
--- [DIMENSION] DimProcessStep
-CREATE TABLE DimProcessStep (
-    ProcessStepKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [DIMENSION] DIM_PROCESS_STEP
+CREATE TABLE DIM_PROCESS_STEP (
+    ProcessStepKey INTEGER AUTOINCREMENT,
     StepCode VARCHAR(40),
     StepName VARCHAR(100),
     StepCategory VARCHAR(60),
     StepSubCategory VARCHAR(60),
-    TypicalSequenceOrder NUMBER,
+    TypicalSequenceOrder INTEGER,
     ExpectedDurationMinHrs DECIMAL(8,2),
     ExpectedDurationMaxHrs DECIMAL(8,2),
     ApplicableAssetClasses VARCHAR(200),
@@ -215,12 +216,13 @@ CREATE TABLE DimProcessStep (
     UpdatedAt TIMESTAMP_TZ,
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
-    DeletedAt TIMESTAMP_TZ
+    DeletedAt TIMESTAMP_TZ,
+    PRIMARY KEY (ProcessStepKey)
 );
 
--- [DIMENSION] DimProcessParameter
-CREATE TABLE DimProcessParameter (
-    ParameterKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [DIMENSION] DIM_PROCESS_PARAMETER
+CREATE TABLE DIM_PROCESS_PARAMETER (
+    ParameterKey INTEGER AUTOINCREMENT,
     ParameterCode VARCHAR(60),
     ParameterName VARCHAR(150),
     ParameterCategory VARCHAR(60),
@@ -244,12 +246,13 @@ CREATE TABLE DimProcessParameter (
     UpdatedAt TIMESTAMP_TZ,
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
-    DeletedAt TIMESTAMP_TZ
+    DeletedAt TIMESTAMP_TZ,
+    PRIMARY KEY (ParameterKey)
 );
 
--- [DIMENSION] DimQualityDisposition
-CREATE TABLE DimQualityDisposition (
-    DispositionKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [DIMENSION] DIM_QUALITY_DISPOSITION
+CREATE TABLE DIM_QUALITY_DISPOSITION (
+    DispositionKey INTEGER AUTOINCREMENT,
     DispositionCode VARCHAR(40),
     DispositionName VARCHAR(100),
     RequiresInvestigation BOOLEAN,
@@ -269,12 +272,13 @@ CREATE TABLE DimQualityDisposition (
     UpdatedAt TIMESTAMP_TZ,
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
-    DeletedAt TIMESTAMP_TZ
+    DeletedAt TIMESTAMP_TZ,
+    PRIMARY KEY (DispositionKey)
 );
 
--- [DIMENSION] DimDeviationCategory
-CREATE TABLE DimDeviationCategory (
-    DeviationCategoryKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [DIMENSION] DIM_DEVIATION_CATEGORY
+CREATE TABLE DIM_DEVIATION_CATEGORY (
+    DeviationCategoryKey INTEGER AUTOINCREMENT,
     CategoryCode VARCHAR(50),
     CategoryName VARCHAR(100),
     CategoryGroup VARCHAR(80),
@@ -286,12 +290,16 @@ CREATE TABLE DimDeviationCategory (
     UpdatedAt TIMESTAMP_TZ,
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
-    DeletedAt TIMESTAMP_TZ
+    DeletedAt TIMESTAMP_TZ,
+    IsCurrent BOOLEAN,
+    EffectiveDate DATE,
+    ExpiryDate DATE,
+    PRIMARY KEY (DeviationCategoryKey)
 );
 
--- [DIMENSION] DimOperator
-CREATE TABLE DimOperator (
-    OperatorKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [DIMENSION] DIM_OPERATOR
+CREATE TABLE DIM_OPERATOR (
+    OperatorKey INTEGER AUTOINCREMENT,
     OperatorID VARCHAR(50),
     FullName VARCHAR(200),
     RoleCode VARCHAR(50),
@@ -309,14 +317,13 @@ CREATE TABLE DimOperator (
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    CONSTRAINT FK_DimOperator_Facility
-        FOREIGN KEY (FacilityKey)
-        REFERENCES DimFacility(FacilityKey)
+    PRIMARY KEY (OperatorKey),
+    FOREIGN KEY (FacilityKey) REFERENCES DIM_FACILITY(FacilityKey)
 );
 
--- [DIMENSION] DimDate
-CREATE TABLE DimDate (
-    DateKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [DIMENSION] DIM_DATE
+CREATE TABLE DIM_DATE (
+    DateKey INTEGER AUTOINCREMENT,
     FullDate DATE,
     Day INTEGER,
     Month INTEGER,
@@ -329,12 +336,16 @@ CREATE TABLE DimDate (
     IsWeekend BOOLEAN,
     IsHoliday BOOLEAN,
     FiscalYear INTEGER,
-    FiscalQuarter INTEGER
+    FiscalQuarter INTEGER,
+    IsCurrent BOOLEAN,
+    EffectiveDate DATE,
+    ExpiryDate DATE,
+    PRIMARY KEY (DateKey)
 );
 
--- [FACT] FactProductionOrder
-CREATE TABLE FactProductionOrder (
-    ProductionOrderKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [FACT] FACT_PRODUCTION_ORDER
+CREATE TABLE FACT_PRODUCTION_ORDER (
+    ProductionOrderKey INTEGER AUTOINCREMENT,
     CanonicalBatchID VARCHAR(50),
     ErpOrderNumber VARCHAR(50),
     MesBatchReference VARCHAR(80),
@@ -343,12 +354,12 @@ CREATE TABLE FactProductionOrder (
     ProductKey INTEGER,
     PrimaryEquipmentKey INTEGER,
     DispositionKey INTEGER,
-    PlannedStartUTC TIMESTAMP_TZ,
-    PlannedEndUTC TIMESTAMP_TZ,
+    PlannedStartUtc TIMESTAMP_TZ,
+    PlannedEndUtc TIMESTAMP_TZ,
     PlannedQuantity DECIMAL(18,3),
     QuantityUom VARCHAR(20),
-    ActualStartUTC TIMESTAMP_TZ,
-    ActualEndUTC TIMESTAMP_TZ,
+    ActualStartUtc TIMESTAMP_TZ,
+    ActualEndUtc TIMESTAMP_TZ,
     ActualQuantity DECIMAL(18,3),
     YieldPct DECIMAL(6,3),
     YieldVariancePct DECIMAL(8,4),
@@ -357,7 +368,7 @@ CREATE TABLE FactProductionOrder (
     OeeQualityPct DECIMAL(6,3),
     OeeOverallPct DECIMAL(6,3),
     BatchStatus VARCHAR(30),
-    DeviationCount NUMBER,
+    DeviationCount INTEGER,
     IsGoldenBatch BOOLEAN,
     GoldenBatchReference VARCHAR(50),
     ShiftAtStart VARCHAR(20),
@@ -367,40 +378,31 @@ CREATE TABLE FactProductionOrder (
     SourceOrderNumOps VARCHAR(50),
     SourceSystem VARCHAR(50),
     SourceKey VARCHAR(100),
-    LoadedAtUTC TIMESTAMP_TZ,
+    LoadedAtUtc TIMESTAMP_TZ,
     CreatedAt TIMESTAMP_TZ,
     CreatedBy VARCHAR(100),
     UpdatedAt TIMESTAMP_TZ,
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    CONSTRAINT FK_FactProductionOrder_Facility
-        FOREIGN KEY (FacilityKey)
-        REFERENCES DimFacility(FacilityKey),
-    CONSTRAINT FK_FactProductionOrder_Product
-        FOREIGN KEY (ProductKey)
-        REFERENCES DimProduct(ProductKey),
-    CONSTRAINT FK_FactProductionOrder_Equipment
-        FOREIGN KEY (PrimaryEquipmentKey)
-        REFERENCES DimEquipment(EquipmentKey),
-    CONSTRAINT FK_FactProductionOrder_Disposition
-        FOREIGN KEY (DispositionKey)
-        REFERENCES DimQualityDisposition(DispositionKey),
-    CONSTRAINT FK_FactProductionOrder_Operator
-        FOREIGN KEY (ShiftSupervisorKey)
-        REFERENCES DimOperator(OperatorKey)
+    PRIMARY KEY (ProductionOrderKey),
+    FOREIGN KEY (FacilityKey) REFERENCES DIM_FACILITY(FacilityKey),
+    FOREIGN KEY (ProductKey) REFERENCES DIM_PRODUCT(ProductKey),
+    FOREIGN KEY (PrimaryEquipmentKey) REFERENCES DIM_EQUIPMENT(EquipmentKey),
+    FOREIGN KEY (DispositionKey) REFERENCES DIM_QUALITY_DISPOSITION(DispositionKey),
+    FOREIGN KEY (ShiftSupervisorKey) REFERENCES DIM_OPERATOR(OperatorKey)
 );
 
--- [FACT] FactBatchStep
-CREATE TABLE FactBatchStep (
-    BatchStepKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [FACT] FACT_BATCH_STEP
+CREATE TABLE FACT_BATCH_STEP (
+    BatchStepKey INTEGER AUTOINCREMENT,
     ProductionOrderKey INTEGER,
     CanonicalBatchID VARCHAR(50),
     ProcessStepKey INTEGER,
     EquipmentKey INTEGER,
-    StepSequence NUMBER,
-    StepStartUTC TIMESTAMP_TZ,
-    StepEndUTC TIMESTAMP_TZ,
+    StepSequence INTEGER,
+    StepStartUtc TIMESTAMP_TZ,
+    StepEndUtc TIMESTAMP_TZ,
     StepDurationHrs DECIMAL(10,4),
     InputQuantity DECIMAL(18,3),
     OutputQuantity DECIMAL(18,3),
@@ -409,48 +411,39 @@ CREATE TABLE FactBatchStep (
     StepStatus VARCHAR(30),
     OperatorKey INTEGER,
     VerifierKey INTEGER,
-    EsignatureTimestampUTC TIMESTAMP_TZ,
+    EsignatureTimestampUtc TIMESTAMP_TZ,
     EsignatureMeaning VARCHAR(200),
     HasDeviation BOOLEAN,
-    DeviationCount NUMBER,
+    DeviationCount INTEGER,
     StepNotes VARCHAR(2000),
     SourceRunIdMartA VARCHAR(50),
-    SourceStepIdOps NUMBER,
+    SourceStepIdOps INTEGER,
     SourceSystem VARCHAR(50),
     SourceKey VARCHAR(100),
-    LoadedAtUTC TIMESTAMP_TZ,
+    LoadedAtUtc TIMESTAMP_TZ,
     CreatedAt TIMESTAMP_TZ,
     CreatedBy VARCHAR(100),
     UpdatedAt TIMESTAMP_TZ,
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    CONSTRAINT FK_FactBatchStep_ProductionOrder
-        FOREIGN KEY (ProductionOrderKey)
-        REFERENCES FactProductionOrder(ProductionOrderKey),
-    CONSTRAINT FK_FactBatchStep_ProcessStep
-        FOREIGN KEY (ProcessStepKey)
-        REFERENCES DimProcessStep(ProcessStepKey),
-    CONSTRAINT FK_FactBatchStep_Equipment
-        FOREIGN KEY (EquipmentKey)
-        REFERENCES DimEquipment(EquipmentKey),
-    CONSTRAINT FK_FactBatchStep_Operator
-        FOREIGN KEY (OperatorKey)
-        REFERENCES DimOperator(OperatorKey),
-    CONSTRAINT FK_FactBatchStep_Verifier
-        FOREIGN KEY (VerifierKey)
-        REFERENCES DimOperator(OperatorKey)
+    PRIMARY KEY (BatchStepKey),
+    FOREIGN KEY (ProductionOrderKey) REFERENCES FACT_PRODUCTION_ORDER(ProductionOrderKey),
+    FOREIGN KEY (ProcessStepKey) REFERENCES DIM_PROCESS_STEP(ProcessStepKey),
+    FOREIGN KEY (EquipmentKey) REFERENCES DIM_EQUIPMENT(EquipmentKey),
+    FOREIGN KEY (OperatorKey) REFERENCES DIM_OPERATOR(OperatorKey),
+    FOREIGN KEY (VerifierKey) REFERENCES DIM_OPERATOR(OperatorKey)
 );
 
--- [FACT] FactEquipmentTelemetry
-CREATE TABLE FactEquipmentTelemetry (
-    TelemetryKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [FACT] FACT_EQUIPMENT_TELEMETRY
+CREATE TABLE FACT_EQUIPMENT_TELEMETRY (
+    TelemetryKey INTEGER AUTOINCREMENT,
     EquipmentKey INTEGER,
     BatchStepKey INTEGER,
     ProductionOrderKey INTEGER,
     CanonicalBatchID VARCHAR(50),
     ParameterKey INTEGER,
-    ReadingTimestampUTC TIMESTAMP_TZ,
+    ReadingTimestampUtc TIMESTAMP_TZ,
     CanonicalValue DECIMAL(18,4),
     CanonicalUom VARCHAR(30),
     SourceValue DECIMAL(18,4),
@@ -469,31 +462,24 @@ CREATE TABLE FactEquipmentTelemetry (
     AggregationType VARCHAR(30),
     SourceSystemType VARCHAR(30),
     SourceReadingIdMartA VARCHAR(60),
-    SourceReadingIdOps NUMBER,
+    SourceReadingIdOps INTEGER,
     SourceSystem VARCHAR(50),
     SourceKey VARCHAR(100),
-    LoadedAtUTC TIMESTAMP_TZ,
+    LoadedAtUtc TIMESTAMP_TZ,
     CreatedAt TIMESTAMP_TZ,
     CreatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    CONSTRAINT FK_FactEquipmentTelemetry_Equipment
-        FOREIGN KEY (EquipmentKey)
-        REFERENCES DimEquipment(EquipmentKey),
-    CONSTRAINT FK_FactEquipmentTelemetry_BatchStep
-        FOREIGN KEY (BatchStepKey)
-        REFERENCES FactBatchStep(BatchStepKey),
-    CONSTRAINT FK_FactEquipmentTelemetry_ProductionOrder
-        FOREIGN KEY (ProductionOrderKey)
-        REFERENCES FactProductionOrder(ProductionOrderKey),
-    CONSTRAINT FK_FactEquipmentTelemetry_Parameter
-        FOREIGN KEY (ParameterKey)
-        REFERENCES DimProcessParameter(ParameterKey)
+    PRIMARY KEY (TelemetryKey),
+    FOREIGN KEY (EquipmentKey) REFERENCES DIM_EQUIPMENT(EquipmentKey),
+    FOREIGN KEY (BatchStepKey) REFERENCES FACT_BATCH_STEP(BatchStepKey),
+    FOREIGN KEY (ProductionOrderKey) REFERENCES FACT_PRODUCTION_ORDER(ProductionOrderKey),
+    FOREIGN KEY (ParameterKey) REFERENCES DIM_PROCESS_PARAMETER(ParameterKey)
 );
 
--- [FACT] FactDeviation
-CREATE TABLE FactDeviation (
-    DeviationKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [FACT] FACT_DEVIATION
+CREATE TABLE FACT_DEVIATION (
+    DeviationKey INTEGER AUTOINCREMENT,
     CanonicalDeviationID VARCHAR(60),
     ProductionOrderKey INTEGER,
     BatchStepKey INTEGER,
@@ -503,7 +489,7 @@ CREATE TABLE FactDeviation (
     DeviationCategoryKey INTEGER,
     FacilityKey INTEGER,
     CanonicalBatchID VARCHAR(50),
-    DetectedTimestampUTC TIMESTAMP_TZ,
+    DetectedTimestampUtc TIMESTAMP_TZ,
     DetectedByKey INTEGER,
     DetectionMethod VARCHAR(80),
     SeverityCode VARCHAR(20),
@@ -511,15 +497,15 @@ CREATE TABLE FactDeviation (
     DeviationDescription VARCHAR(4000),
     InvestigationStatus VARCHAR(30),
     AssignedToKey INTEGER,
-    InvestigationStartUTC TIMESTAMP_TZ,
-    InvestigationEndUTC TIMESTAMP_TZ,
+    InvestigationStartUtc TIMESTAMP_TZ,
+    InvestigationEndUtc TIMESTAMP_TZ,
     RootCauseCode VARCHAR(80),
     RootCauseDescription VARCHAR(2000),
     CapaRequired BOOLEAN,
-    CapaReferenceID VARCHAR(60),
+    CapaReferenceId VARCHAR(60),
     CapaDueDate DATE,
     CapaClosedDate DATE,
-    ClosedTimestampUTC TIMESTAMP_TZ,
+    ClosedTimestampUtc TIMESTAMP_TZ,
     ClosedByKey INTEGER,
     ResolutionSummary VARCHAR(4000),
     RegulatoryNotificationRequired BOOLEAN,
@@ -528,62 +514,42 @@ CREATE TABLE FactDeviation (
     SourceDevNumOps VARCHAR(50),
     SourceSystem VARCHAR(50),
     SourceKey VARCHAR(100),
-    LoadedAtUTC TIMESTAMP_TZ,
+    LoadedAtUtc TIMESTAMP_TZ,
     CreatedAt TIMESTAMP_TZ,
     CreatedBy VARCHAR(100),
     UpdatedAt TIMESTAMP_TZ,
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    CONSTRAINT FK_FactDeviation_ProductionOrder
-        FOREIGN KEY (ProductionOrderKey)
-        REFERENCES FactProductionOrder(ProductionOrderKey),
-    CONSTRAINT FK_FactDeviation_BatchStep
-        FOREIGN KEY (BatchStepKey)
-        REFERENCES FactBatchStep(BatchStepKey),
-    CONSTRAINT FK_FactDeviation_Telemetry
-        FOREIGN KEY (TelemetryKey)
-        REFERENCES FactEquipmentTelemetry(TelemetryKey),
-    CONSTRAINT FK_FactDeviation_Equipment
-        FOREIGN KEY (EquipmentKey)
-        REFERENCES DimEquipment(EquipmentKey),
-    CONSTRAINT FK_FactDeviation_Parameter
-        FOREIGN KEY (ParameterKey)
-        REFERENCES DimProcessParameter(ParameterKey),
-    CONSTRAINT FK_FactDeviation_DeviationCategory
-        FOREIGN KEY (DeviationCategoryKey)
-        REFERENCES DimDeviationCategory(DeviationCategoryKey),
-    CONSTRAINT FK_FactDeviation_Facility
-        FOREIGN KEY (FacilityKey)
-        REFERENCES DimFacility(FacilityKey),
-    CONSTRAINT FK_FactDeviation_DetectedBy
-        FOREIGN KEY (DetectedByKey)
-        REFERENCES DimOperator(OperatorKey),
-    CONSTRAINT FK_FactDeviation_AssignedTo
-        FOREIGN KEY (AssignedToKey)
-        REFERENCES DimOperator(OperatorKey),
-    CONSTRAINT FK_FactDeviation_ClosedBy
-        FOREIGN KEY (ClosedByKey)
-        REFERENCES DimOperator(OperatorKey)
+    PRIMARY KEY (DeviationKey),
+    FOREIGN KEY (ProductionOrderKey) REFERENCES FACT_PRODUCTION_ORDER(ProductionOrderKey),
+    FOREIGN KEY (BatchStepKey) REFERENCES FACT_BATCH_STEP(BatchStepKey),
+    FOREIGN KEY (TelemetryKey) REFERENCES FACT_EQUIPMENT_TELEMETRY(TelemetryKey),
+    FOREIGN KEY (EquipmentKey) REFERENCES DIM_EQUIPMENT(EquipmentKey),
+    FOREIGN KEY (ParameterKey) REFERENCES DIM_PROCESS_PARAMETER(ParameterKey),
+    FOREIGN KEY (DeviationCategoryKey) REFERENCES DIM_DEVIATION_CATEGORY(DeviationCategoryKey),
+    FOREIGN KEY (FacilityKey) REFERENCES DIM_FACILITY(FacilityKey),
+    FOREIGN KEY (DetectedByKey) REFERENCES DIM_OPERATOR(OperatorKey),
+    FOREIGN KEY (AssignedToKey) REFERENCES DIM_OPERATOR(OperatorKey),
+    FOREIGN KEY (ClosedByKey) REFERENCES DIM_OPERATOR(OperatorKey)
 );
 
--- [FACT] FactYieldAnalytics
-CREATE TABLE FactYieldAnalytics (
-    YieldAnalyticsKey INTEGER AUTOINCREMENT PRIMARY KEY,
-    DateKey INTEGER,
+-- [FACT] FACT_YIELD_ANALYTICS
+CREATE TABLE FACT_YIELD_ANALYTICS (
+    YieldAnalyticsKey INTEGER AUTOINCREMENT,
     AnalysisDate DATE,
     FacilityKey INTEGER,
     ProductKey INTEGER,
     AggregationLevel VARCHAR(30),
-    BatchesStarted NUMBER,
-    BatchesCompleted NUMBER,
-    BatchesOnHold NUMBER,
-    BatchesFailed NUMBER,
+    BatchesStarted INTEGER,
+    BatchesCompleted INTEGER,
+    BatchesOnHold INTEGER,
+    BatchesFailed INTEGER,
     AvgYieldPct DECIMAL(6,3),
     MinYieldPct DECIMAL(6,3),
     MaxYieldPct DECIMAL(6,3),
     StdYieldPct DECIMAL(8,4),
-    YieldBelowTargetCount NUMBER,
+    YieldBelowTargetCount INTEGER,
     YieldTargetAttainmentPct DECIMAL(6,3),
     TotalPlannedQty DECIMAL(18,3),
     TotalActualQty DECIMAL(18,3),
@@ -592,67 +558,56 @@ CREATE TABLE FactYieldAnalytics (
     AvgAvailabilityPct DECIMAL(6,3),
     AvgPerformancePct DECIMAL(6,3),
     AvgQualityPct DECIMAL(6,3),
-    TotalDeviations NUMBER,
-    HighCriticalDeviations NUMBER,
+    TotalDeviations INTEGER,
+    HighCriticalDeviations INTEGER,
     CppComplianceRatePct DECIMAL(6,3),
     SourceSystem VARCHAR(50),
     SourceKey VARCHAR(100),
-    LoadedAtUTC TIMESTAMP_TZ,
+    LoadedAtUtc TIMESTAMP_TZ,
     CreatedAt TIMESTAMP_TZ,
     CreatedBy VARCHAR(100),
     UpdatedAt TIMESTAMP_TZ,
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    CONSTRAINT FK_FactYieldAnalytics_Date
-        FOREIGN KEY (DateKey)
-        REFERENCES DimDate(DateKey),
-    CONSTRAINT FK_FactYieldAnalytics_Facility
-        FOREIGN KEY (FacilityKey)
-        REFERENCES DimFacility(FacilityKey),
-    CONSTRAINT FK_FactYieldAnalytics_Product
-        FOREIGN KEY (ProductKey)
-        REFERENCES DimProduct(ProductKey)
+    PRIMARY KEY (YieldAnalyticsKey),
+    FOREIGN KEY (AnalysisDate) REFERENCES DIM_DATE(FullDate),
+    FOREIGN KEY (FacilityKey) REFERENCES DIM_FACILITY(FacilityKey),
+    FOREIGN KEY (ProductKey) REFERENCES DIM_PRODUCT(ProductKey)
 );
 
--- [FACT] FactShiftLog
-CREATE TABLE FactShiftLog (
-    ShiftLogKey INTEGER AUTOINCREMENT PRIMARY KEY,
+-- [FACT] FACT_SHIFT_LOG
+CREATE TABLE FACT_SHIFT_LOG (
+    ShiftLogKey INTEGER AUTOINCREMENT,
     FacilityKey INTEGER,
-    DateKey INTEGER,
     LogDate DATE,
     ShiftName VARCHAR(20),
-    ShiftStartUTC TIMESTAMP_TZ,
-    ShiftEndUTC TIMESTAMP_TZ,
+    ShiftStartUtc TIMESTAMP_TZ,
+    ShiftEndUtc TIMESTAMP_TZ,
     SupervisorKey INTEGER,
-    ActiveBatches NUMBER,
-    CompletedBatches NUMBER,
-    NewDeviations NUMBER,
-    ClosedDeviations NUMBER,
-    EquipmentDowntimeMins NUMBER,
-    EquipmentIssuesCount NUMBER,
+    ActiveBatches INTEGER,
+    CompletedBatches INTEGER,
+    NewDeviations INTEGER,
+    ClosedDeviations INTEGER,
+    EquipmentDowntimeMins INTEGER,
+    EquipmentIssuesCount INTEGER,
     SignedOff BOOLEAN,
-    SignedOffUTC TIMESTAMP_TZ,
+    SignedOffUtc TIMESTAMP_TZ,
     ShiftNotes VARCHAR(4000),
-    SourceLogIdMartA NUMBER,
+    SourceLogIdMartA INTEGER,
     SourceSystem VARCHAR(50),
     SourceKey VARCHAR(100),
-    LoadedAtUTC TIMESTAMP_TZ,
+    LoadedAtUtc TIMESTAMP_TZ,
     CreatedAt TIMESTAMP_TZ,
     CreatedBy VARCHAR(100),
     UpdatedAt TIMESTAMP_TZ,
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    CONSTRAINT FK_FactShiftLog_Facility
-        FOREIGN KEY (FacilityKey)
-        REFERENCES DimFacility(FacilityKey),
-    CONSTRAINT FK_FactShiftLog_Date
-        FOREIGN KEY (DateKey)
-        REFERENCES DimDate(DateKey),
-    CONSTRAINT FK_FactShiftLog_Supervisor
-        FOREIGN KEY (SupervisorKey)
-        REFERENCES DimOperator(OperatorKey)
+    PRIMARY KEY (ShiftLogKey),
+    FOREIGN KEY (FacilityKey) REFERENCES DIM_FACILITY(FacilityKey),
+    FOREIGN KEY (LogDate) REFERENCES DIM_DATE(FullDate),
+    FOREIGN KEY (SupervisorKey) REFERENCES DIM_OPERATOR(OperatorKey)
 );
 
 ```
@@ -660,7 +615,6 @@ CREATE TABLE FactShiftLog (
 ### SECTION 2 — MERMAID DIAGRAM
 
 ```mermaid
-
 erDiagram
 
     FactProductionOrder }o--|| DimFacility : "references"
@@ -702,7 +656,7 @@ erDiagram
         varchar OrganizationID
         varchar OrganizationName
         varchar OrganizationType
-        int ParentOrganizationKey FK
+        int ParentOrganizationKey
         varchar CountryCode
         varchar RegulatoryRegion
         boolean IsActive
@@ -716,6 +670,8 @@ erDiagram
         varchar UpdatedBy
         boolean IsDeleted
         timestamp DeletedAt
+        boolean IsCurrent
+        date ExpiryDate
     }
 
     DimFacility {
@@ -756,12 +712,14 @@ erDiagram
         varchar UpdatedBy
         boolean IsDeleted
         timestamp DeletedAt
+        boolean IsCurrent
+        date ExpiryDate
     }
 
     DimProduct {
         int ProductKey PK
         varchar ProductID
-        varchar Sku
+        varchar SKU
         varchar ProductName
         varchar ProductShortName
         int OrganizationKey FK
@@ -798,6 +756,8 @@ erDiagram
         varchar UpdatedBy
         boolean IsDeleted
         timestamp DeletedAt
+        boolean IsCurrent
+        date ExpiryDate
     }
 
     DimMaterialLot {
@@ -865,6 +825,9 @@ erDiagram
         varchar UpdatedBy
         boolean IsDeleted
         timestamp DeletedAt
+        boolean IsCurrent
+        date EffectiveDate
+        date ExpiryDate
     }
 
     DimProcessStep {
@@ -955,6 +918,9 @@ erDiagram
         varchar UpdatedBy
         boolean IsDeleted
         timestamp DeletedAt
+        boolean IsCurrent
+        date EffectiveDate
+        date ExpiryDate
     }
 
     DimOperator {
@@ -993,6 +959,9 @@ erDiagram
         boolean IsHoliday
         int FiscalYear
         int FiscalQuarter
+        boolean IsCurrent
+        date EffectiveDate
+        date ExpiryDate
     }
 
     FactProductionOrder {
@@ -1005,12 +974,12 @@ erDiagram
         int ProductKey FK
         int PrimaryEquipmentKey FK
         int DispositionKey FK
-        timestamp PlannedStartUTC
-        timestamp PlannedEndUTC
+        timestamp PlannedStartUtc
+        timestamp PlannedEndUtc
         numeric PlannedQuantity
         varchar QuantityUom
-        timestamp ActualStartUTC
-        timestamp ActualEndUTC
+        timestamp ActualStartUtc
+        timestamp ActualEndUtc
         numeric ActualQuantity
         numeric YieldPct
         numeric YieldVariancePct
@@ -1029,7 +998,7 @@ erDiagram
         varchar SourceOrderNumOps
         varchar SourceSystem
         varchar SourceKey
-        timestamp LoadedAtUTC
+        timestamp LoadedAtUtc
         timestamp CreatedAt
         varchar CreatedBy
         timestamp UpdatedAt
@@ -1045,8 +1014,8 @@ erDiagram
         int ProcessStepKey FK
         int EquipmentKey FK
         int StepSequence
-        timestamp StepStartUTC
-        timestamp StepEndUTC
+        timestamp StepStartUtc
+        timestamp StepEndUtc
         numeric StepDurationHrs
         numeric InputQuantity
         numeric OutputQuantity
@@ -1055,7 +1024,7 @@ erDiagram
         varchar StepStatus
         int OperatorKey FK
         int VerifierKey FK
-        timestamp EsignatureTimestampUTC
+        timestamp EsignatureTimestampUtc
         varchar EsignatureMeaning
         boolean HasDeviation
         int DeviationCount
@@ -1064,7 +1033,7 @@ erDiagram
         int SourceStepIdOps
         varchar SourceSystem
         varchar SourceKey
-        timestamp LoadedAtUTC
+        timestamp LoadedAtUtc
         timestamp CreatedAt
         varchar CreatedBy
         timestamp UpdatedAt
@@ -1080,7 +1049,7 @@ erDiagram
         int ProductionOrderKey FK
         varchar CanonicalBatchID
         int ParameterKey FK
-        timestamp ReadingTimestampUTC
+        timestamp ReadingTimestampUtc
         numeric CanonicalValue
         varchar CanonicalUom
         numeric SourceValue
@@ -1102,7 +1071,7 @@ erDiagram
         int SourceReadingIdOps
         varchar SourceSystem
         varchar SourceKey
-        timestamp LoadedAtUTC
+        timestamp LoadedAtUtc
         timestamp CreatedAt
         varchar CreatedBy
         boolean IsDeleted
@@ -1120,7 +1089,7 @@ erDiagram
         int DeviationCategoryKey FK
         int FacilityKey FK
         varchar CanonicalBatchID
-        timestamp DetectedTimestampUTC
+        timestamp DetectedTimestampUtc
         int DetectedByKey FK
         varchar DetectionMethod
         varchar SeverityCode
@@ -1128,15 +1097,15 @@ erDiagram
         varchar DeviationDescription
         varchar InvestigationStatus
         int AssignedToKey FK
-        timestamp InvestigationStartUTC
-        timestamp InvestigationEndUTC
+        timestamp InvestigationStartUtc
+        timestamp InvestigationEndUtc
         varchar RootCauseCode
         varchar RootCauseDescription
         boolean CapaRequired
-        varchar CapaReferenceID
+        varchar CapaReferenceId
         date CapaDueDate
         date CapaClosedDate
-        timestamp ClosedTimestampUTC
+        timestamp ClosedTimestampUtc
         int ClosedByKey FK
         varchar ResolutionSummary
         boolean RegulatoryNotificationRequired
@@ -1145,7 +1114,7 @@ erDiagram
         varchar SourceDevNumOps
         varchar SourceSystem
         varchar SourceKey
-        timestamp LoadedAtUTC
+        timestamp LoadedAtUtc
         timestamp CreatedAt
         varchar CreatedBy
         timestamp UpdatedAt
@@ -1156,8 +1125,7 @@ erDiagram
 
     FactYieldAnalytics {
         int YieldAnalyticsKey PK
-        int DateKey FK
-        date AnalysisDate
+        date AnalysisDate FK
         int FacilityKey FK
         int ProductKey FK
         varchar AggregationLevel
@@ -1183,7 +1151,7 @@ erDiagram
         numeric CppComplianceRatePct
         varchar SourceSystem
         varchar SourceKey
-        timestamp LoadedAtUTC
+        timestamp LoadedAtUtc
         timestamp CreatedAt
         varchar CreatedBy
         timestamp UpdatedAt
@@ -1195,11 +1163,10 @@ erDiagram
     FactShiftLog {
         int ShiftLogKey PK
         int FacilityKey FK
-        int DateKey FK
-        date LogDate
+        date LogDate FK
         varchar ShiftName
-        timestamp ShiftStartUTC
-        timestamp ShiftEndUTC
+        timestamp ShiftStartUtc
+        timestamp ShiftEndUtc
         int SupervisorKey FK
         int ActiveBatches
         int CompletedBatches
@@ -1208,12 +1175,12 @@ erDiagram
         int EquipmentDowntimeMins
         int EquipmentIssuesCount
         boolean SignedOff
-        timestamp SignedOffUTC
+        timestamp SignedOffUtc
         varchar ShiftNotes
         int SourceLogIdMartA
         varchar SourceSystem
         varchar SourceKey
-        timestamp LoadedAtUTC
+        timestamp LoadedAtUtc
         timestamp CreatedAt
         varchar CreatedBy
         timestamp UpdatedAt
@@ -1228,13 +1195,13 @@ erDiagram
 
 | Metric | Detail |
 |---|---|
-| Total tables identified (Step 2) | 13 |
+| Total tables identified (Step 2) | 15 |
 | Fact Tables generated | 6 |
-| Dimension Tables generated | 7 |
-| CREATE TABLE statements generated | 13 |
+| Dimension Tables generated | 9 |
+| CREATE TABLE statements generated | 15 |
 | FK Relationships defined | 29 |
-| SCD Type 2 Dimensions | 2 (DimFacility, DimProduct) |
+| SCD Type 2 Dimensions | 5 |
 | DimDate included | Yes |
 | DDL Compliance | Pass |
 | Mermaid Validity | Pass |
-| Notes | All tables from the analytical star schema were converted into Snowflake DDL with one CREATE TABLE per table, and a one-to-one, FK-complete Mermaid ER diagram. |
+| Notes | All tables from the analytical model were converted to Snowflake DDL with corresponding Mermaid ER entities and relationships, maintaining one-to-one alignment across sections. |
