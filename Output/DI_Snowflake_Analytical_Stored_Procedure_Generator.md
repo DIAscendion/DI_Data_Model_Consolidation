@@ -6,30 +6,36 @@
 |---|---|
 | Total analytical model tables | 12 |
 | Total stored procedures generated | 12 |
-| Tables with validation issues | DimDate (derived calendar; no direct canonical entity) |
-| PII/PHI-handling procedures | 1 (DIM_OPERATOR) |
+| Tables with validation issues | 0 |
+| PII/PHI-handling procedures | 0 |
 
 ## Section 2 — Snowflake Stored Procedures
 
-> Assumptions (consistent across all procedures):
+> Assumptions:
+> - Canonical tables share the same names as the star schema tables (e.g., canonical `DIM_ORGANIZATION` feeds analytical `DIM_ORGANIZATION`).
+> - Surrogate keys (`*_Key` columns) are generated in the analytical tables via Snowflake sequences or IDENTITY; canonical sources contain business/natural keys and numeric foreign keys.
+> - Audit logging table exists as `ANALYTICAL_MIGRATION_AUDIT` with the following minimal structure:
+>   - PROC_NAME VARCHAR,
+>   - TARGET_TABLE VARCHAR,
+>   - START_TIME TIMESTAMP_TZ,
+>   - END_TIME TIMESTAMP_TZ,
+>   - STATUS VARCHAR,
+>   - ERROR_MESSAGE VARCHAR,
+>   - ROWS_INSERTED NUMBER,
+>   - ROWS_UPDATED NUMBER,
+>   - ROWS_REJECTED NUMBER,
+>   - ATTEMPT_NUMBER NUMBER
+> - No PII/PHI columns are present per the mapper (PII column count = 0), so no masking logic is required beyond standard RBAC.
 >
-> - Canonical tables exist in a schema `CANONICAL` with names matching `DIM_*` and `FACT_*` entities in the mapping table.
-> - Analytical/star tables exist in schema `ANALYTICAL` with names as listed (e.g., `DIM_ORGANIZATION`, `FACT_PRODUCTION_ORDER`).
-> - An audit log table exists: `ANALYTICAL.AUDIT_LOG` with at least these columns:
->   - `AUDIT_ID` (NUMBER AUTOINCREMENT), `PROC_NAME` (STRING), `TARGET_TABLE` (STRING), `LOAD_START_TS` (TIMESTAMP_TZ),
->   - `LOAD_END_TS` (TIMESTAMP_TZ), `ROWS_INSERTED` (NUMBER), `ROWS_UPDATED` (NUMBER), `ROWS_REJECTED` (NUMBER),
->   - `STATUS` (STRING), `ERROR_MESSAGE` (STRING).
-> - For simplicity, all procedures perform full refresh inserts (no updates) from canonical to analytical, except that SCD Type 2
->   dimensions preserve existing records by not deleting current rows; more advanced SCD handling can be layered on top.
-> - PII masking for `DIM_OPERATOR.FullName` is implemented as `NULL` (can be replaced with tokenization function per policy).
+> Replace schema names (`CANONICAL`, `ANALYTICAL`) and sequence names as needed for your environment.
 
 ---
 
 ```sql
 -- ============================================================
 -- Procedure: MIGRATE_DIM_ORGANIZATION
--- Target table: ANALYTICAL.DIM_ORGANIZATION
--- Source canonical entity: CANONICAL.DIM_ORGANIZATION
+-- Target table: DIM_ORGANIZATION (ANALYTICAL schema)
+-- Source canonical entity: DIM_ORGANIZATION (CANONICAL schema)
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_DIM_ORGANIZATION()
 RETURNS STRING
@@ -38,138 +44,135 @@ EXECUTE AS CALLER
 AS
 $$
 DECLARE
-    v_proc_name           STRING   := 'MIGRATE_DIM_ORGANIZATION';
-    v_target_table        STRING   := 'ANALYTICAL.DIM_ORGANIZATION';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
 BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    -- Audit: start event
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
 
     WHILE (v_attempt < v_max_attempts) DO
         v_attempt := v_attempt + 1;
         BEGIN
             BEGIN TRANSACTION;
 
-            -- Full reload strategy: optional truncate; comment out if incremental needed
+            -- Example strategy: truncate and reload Type 2 dimension from canonical snapshot
+            -- Adjust to MERGE-based SCD management if required.
             TRUNCATE TABLE ANALYTICAL.DIM_ORGANIZATION;
 
-            -- Insert from canonical to analytical
-            INSERT INTO ANALYTICAL.DIM_ORGANIZATION
-            (
-                OrganizationKey,
-                OrganizationID,
-                OrganizationName,
-                OrganizationType,
-                ParentOrganizationKey,
-                CountryCode,
-                RegulatoryRegion,
-                IsActive,
-                EffectiveStartDate,
-                EffectiveEndDate,
-                SourceSystem,
-                SourceKey,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
+            INSERT INTO ANALYTICAL.DIM_ORGANIZATION (
+                ORGANIZATIONKEY,
+                ORGANIZATIONID,
+                ORGANIZATIONNAME,
+                ORGANIZATIONTYPE,
+                PARENTORGANIZATIONKEY,
+                COUNTRYCODE,
+                REGULATORYREGION,
+                ISACTIVE,
+                EFFECTIVESTARTDATE,
+                EFFECTIVEENDDATE,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
             )
             SELECT
-                ORGANIZATION_KEY        AS OrganizationKey,
-                ORGANIZATION_ID         AS OrganizationID,
-                ORGANIZATION_NAME       AS OrganizationName,
-                ORGANIZATION_TYPE       AS OrganizationType,
-                PARENT_ORGANIZATION_KEY AS ParentOrganizationKey,
-                COUNTRY_CODE            AS CountryCode,
-                REGULATORY_REGION       AS RegulatoryRegion,
-                IS_ACTIVE               AS IsActive,
-                EFFECTIVE_START_DATE    AS EffectiveStartDate,
-                EFFECTIVE_END_DATE      AS EffectiveEndDate,
-                _SOURCE_SYSTEM          AS SourceSystem,
-                _SOURCE_KEY             AS SourceKey,
-                CREATED_AT              AS CreatedAt,
-                CREATED_BY              AS CreatedBy,
-                UPDATED_AT              AS UpdatedAt,
-                UPDATED_BY              AS UpdatedBy,
-                IS_DELETED              AS IsDeleted,
-                DELETED_AT              AS DeletedAt
-            FROM CANONICAL.DIM_ORGANIZATION;
+                -- Surrogate key: assume IDENTITY already defined on target; use DEFAULT
+                DEFAULT,
+                ORGANIZATION_ID,
+                ORGANIZATION_NAME,
+                ORGANIZATION_TYPE,
+                CAST(PARENT_ORGANIZATION_KEY AS INTEGER),
+                COUNTRY_CODE,
+                REGULATORY_REGION,
+                IS_ACTIVE,
+                EFFECTIVE_START_DATE,
+                EFFECTIVE_END_DATE,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.DIM_ORGANIZATION
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
 
-            v_rows_inserted := SQLROWCOUNT();
+            v_rows_inserted := SQLROWCOUNT;
 
             COMMIT;
 
             v_status := 'SUCCESS';
             v_error_message := NULL;
-            EXIT; -- exit retry loop on success
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_DIM_ORGANIZATION', 'DIM_ORGANIZATION',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_DIM_ORGANIZATION completed';
 
         EXCEPTION
             WHEN OTHER THEN
                 v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
 
                 ROLLBACK;
 
-                -- Simple transient backoff
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_DIM_ORGANIZATION', 'DIM_ORGANIZATION',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                -- Simple backoff
+                CALL SYSTEM$WAIT(5);
         END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
     END WHILE;
 
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_DIM_ORGANIZATION - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
     END IF;
-
-    -- Final audit event
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_DIM_ORGANIZATION completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_DIM_ORGANIZATION - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
 END;
 $$;
 ```
 
+---
+
 ```sql
 -- ============================================================
 -- Procedure: MIGRATE_DIM_FACILITY
--- Target table: ANALYTICAL.DIM_FACILITY
--- Source canonical entity: CANONICAL.DIM_FACILITY
--- Notes: SCD Type 2 dimension; this implementation performs full reload
--- and preserves historical rows from canonical as-is.
+-- Target table: DIM_FACILITY (ANALYTICAL schema)
+-- Source canonical entity: DIM_FACILITY (CANONICAL schema)
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_DIM_FACILITY()
 RETURNS STRING
@@ -178,169 +181,167 @@ EXECUTE AS CALLER
 AS
 $$
 DECLARE
-    v_proc_name           STRING   := 'MIGRATE_DIM_FACILITY';
-    v_target_table        STRING   := 'ANALYTICAL.DIM_FACILITY';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
 BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
 
     WHILE (v_attempt < v_max_attempts) DO
         v_attempt := v_attempt + 1;
         BEGIN
             BEGIN TRANSACTION;
 
-            -- For SCD Type 2, often we do not truncate; here we assume canonical holds full history
             TRUNCATE TABLE ANALYTICAL.DIM_FACILITY;
 
-            INSERT INTO ANALYTICAL.DIM_FACILITY
-            (
-                FacilityKey,
-                FacilityID,
-                FacilityName,
-                FacilityShortName,
-                OrganizationKey,
-                SiteCode,
-                FacilityType,
-                AddressLine1,
-                AddressLine2,
-                City,
-                StateRegion,
-                PostalCode,
-                CountryCode,
-                TimezoneName,
-                UtcOffsetHours,
-                GmpCertified,
-                GmpCertificationDate,
-                GmpExpiryDate,
-                RegulatoryAgency,
-                FdaEstablishmentId,
-                EmaSiteCode,
-                ManufacturingCapacity,
-                SourceSiteCodeMartA,
-                SourcePlantCodeOps,
-                SourceFacCodeMartB,
-                EffectiveStartDate,
-                EffectiveEndDate,
-                CurrentFlag,
-                ScdVersion,
-                SourceSystem,
-                SourceKey,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
+            INSERT INTO ANALYTICAL.DIM_FACILITY (
+                FACILITYKEY,
+                FACILITYID,
+                FACILITYNAME,
+                FACILITYSHORTNAME,
+                ORGANIZATIONKEY,
+                SITECODE,
+                FACILITYTYPE,
+                ADDRESSLINE1,
+                ADDRESSLINE2,
+                CITY,
+                STATEREGION,
+                POSTALCODE,
+                COUNTRYCODE,
+                TIMEZONENAME,
+                UTCOFFSETHOURS,
+                GMPCERTIFIED,
+                GMPCERTIFICATIONDATE,
+                GMPEXPIRYDATE,
+                REGULATORYAGENCY,
+                FDAESTABLISHMENTID,
+                EMASITECODE,
+                MANUFACTURINGCAPACITY,
+                SOURCESITECODEMARTA,
+                SOURCEPLANTCODEOPS,
+                SOURCEFACCODEMARTB,
+                EFFECTIVESTARTDATE,
+                EFFECTIVEENDDATE,
+                CURRENTFLAG,
+                SCDVERSION,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
             )
             SELECT
-                FACILITY_KEY             AS FacilityKey,
-                FACILITY_ID             AS FacilityID,
-                FACILITY_NAME           AS FacilityName,
-                FACILITY_SHORT_NAME     AS FacilityShortName,
-                ORGANIZATION_KEY        AS OrganizationKey,
-                SITE_CODE               AS SiteCode,
-                FACILITY_TYPE           AS FacilityType,
-                ADDRESS_LINE_1          AS AddressLine1,
-                ADDRESS_LINE_2          AS AddressLine2,
-                CITY                    AS City,
-                STATE_REGION            AS StateRegion,
-                POSTAL_CODE             AS PostalCode,
-                COUNTRY_CODE            AS CountryCode,
-                TIMEZONE_NAME           AS TimezoneName,
-                UTC_OFFSET_HOURS        AS UtcOffsetHours,
-                GMP_CERTIFIED           AS GmpCertified,
-                GMP_CERTIFICATION_DATE  AS GmpCertificationDate,
-                GMP_EXPIRY_DATE         AS GmpExpiryDate,
-                REGULATORY_AGENCY       AS RegulatoryAgency,
-                FDA_ESTABLISHMENT_ID    AS FdaEstablishmentId,
-                EMA_SITE_CODE           AS EmaSiteCode,
-                MANUFACTURING_CAPACITY  AS ManufacturingCapacity,
-                SOURCE_SITE_CODE_MART_A AS SourceSiteCodeMartA,
-                SOURCE_PLANT_CODE_OPS   AS SourcePlantCodeOps,
-                SOURCE_FAC_CODE_MART_B  AS SourceFacCodeMartB,
-                EFFECTIVE_START_DATE    AS EffectiveStartDate,
-                EFFECTIVE_END_DATE      AS EffectiveEndDate,
-                CURRENT_FLAG            AS CurrentFlag,
-                SCD_VERSION             AS ScdVersion,
-                _SOURCE_SYSTEM          AS SourceSystem,
-                _SOURCE_KEY             AS SourceKey,
-                CREATED_AT              AS CreatedAt,
-                CREATED_BY              AS CreatedBy,
-                UPDATED_AT              AS UpdatedAt,
-                UPDATED_BY              AS UpdatedBy,
-                IS_DELETED              AS IsDeleted,
-                DELETED_AT              AS DeletedAt
-            FROM CANONICAL.DIM_FACILITY;
+                DEFAULT,
+                FACILITY_ID,
+                FACILITY_NAME,
+                FACILITY_SHORT_NAME,
+                CAST(ORGANIZATION_KEY AS INTEGER),
+                SITE_CODE,
+                FACILITY_TYPE,
+                ADDRESS_LINE_1,
+                ADDRESS_LINE_2,
+                CITY,
+                STATE_REGION,
+                POSTAL_CODE,
+                COUNTRY_CODE,
+                TIMEZONE_NAME,
+                UTC_OFFSET_HOURS,
+                GMP_CERTIFIED,
+                GMP_CERTIFICATION_DATE,
+                GMP_EXPIRY_DATE,
+                REGULATORY_AGENCY,
+                FDA_ESTABLISHMENT_ID,
+                EMA_SITE_CODE,
+                MANUFACTURING_CAPACITY,
+                SOURCE_SITE_CODE_MART_A,
+                SOURCE_PLANT_CODE_OPS,
+                SOURCE_FAC_CODE_MART_B,
+                EFFECTIVE_START_DATE,
+                EFFECTIVE_END_DATE,
+                CURRENT_FLAG,
+                SCD_VERSION,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.DIM_FACILITY
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
 
-            v_rows_inserted := SQLROWCOUNT();
+            v_rows_inserted := SQLROWCOUNT;
 
             COMMIT;
 
             v_status := 'SUCCESS';
             v_error_message := NULL;
-            EXIT;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_DIM_FACILITY', 'DIM_FACILITY',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_DIM_FACILITY completed';
 
         EXCEPTION
             WHEN OTHER THEN
                 v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
                 ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_DIM_FACILITY', 'DIM_FACILITY',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
         END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
     END WHILE;
 
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_DIM_FACILITY - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
     END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_DIM_FACILITY completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_DIM_FACILITY - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
 END;
 $$;
 ```
 
+---
+
 ```sql
 -- ============================================================
 -- Procedure: MIGRATE_DIM_PRODUCT
--- Target table: ANALYTICAL.DIM_PRODUCT
--- Source canonical entity: CANONICAL.DIM_PRODUCT
--- Notes: SCD Type 2 dimension; full reload from canonical.
+-- Target table: DIM_PRODUCT (ANALYTICAL schema)
+-- Source canonical entity: DIM_PRODUCT (CANONICAL schema)
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_DIM_PRODUCT()
 RETURNS STRING
@@ -349,25 +350,18 @@ EXECUTE AS CALLER
 AS
 $$
 DECLARE
-    v_proc_name           STRING   := 'MIGRATE_DIM_PRODUCT';
-    v_target_table        STRING   := 'ANALYTICAL.DIM_PRODUCT';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
 BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
 
     WHILE (v_attempt < v_max_attempts) DO
         v_attempt := v_attempt + 1;
@@ -376,144 +370,151 @@ BEGIN
 
             TRUNCATE TABLE ANALYTICAL.DIM_PRODUCT;
 
-            INSERT INTO ANALYTICAL.DIM_PRODUCT
-            (
-                ProductKey,
-                ProductID,
-                Sku,
-                ProductName,
-                ProductShortName,
-                OrganizationKey,
-                FormulationId,
-                FormulationVersion,
-                DosageForm,
-                DosageStrength,
-                RouteOfAdministration,
-                TherapeuticClass,
-                TherapeuticArea,
-                ProductCategory,
-                IsBiosimilar,
-                ReferenceProductId,
-                InnName,
-                IdmpMpid,
-                NdaBlaNumber,
-                EmaProductNumber,
-                StandardYieldPct,
-                YieldLowerAlertPct,
-                YieldLowerActionPct,
-                ShelfLifeMonths,
-                StorageCondition,
-                EffectiveStartDate,
-                EffectiveEndDate,
-                CurrentFlag,
-                ScdVersion,
-                SourceProductCodeMartA,
-                SourceProductCodeOps,
-                SourceSystem,
-                SourceKey,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
+            INSERT INTO ANALYTICAL.DIM_PRODUCT (
+                PRODUCTKEY,
+                PRODUCTID,
+                SKU,
+                PRODUCTNAME,
+                PRODUCTSHORTNAME,
+                ORGANIZATIONKEY,
+                FORMULATIONID,
+                FORMULATIONVERSION,
+                DOSAGEFORM,
+                DOSAGESTRENGTH,
+                ROUTEOFADMINISTRATION,
+                THERAPEUTICCLASS,
+                THERAPEUTICAREA,
+                PRODUCTCATEGORY,
+                ISBIOSIMILAR,
+                REFERENCEPRODUCTID,
+                INNNAME,
+                IDMPMPID,
+                NDABLANUMBER,
+                EMAPRODUCTNUMBER,
+                STANDARDYIELDPCT,
+                YIELDLOWERALERTPCT,
+                YIELDLOWERACTIONPCT,
+                SHELFLIFEMONTHS,
+                STORAGECONDITION,
+                EFFECTIVESTARTDATE,
+                EFFECTIVEENDDATE,
+                CURRENTFLAG,
+                SCDVERSION,
+                SOURCEPRODUCTCODEMARTA,
+                SOURCEPRODUCTCODEOPS,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
             )
             SELECT
-                PRODUCT_KEY                  AS ProductKey,
-                PRODUCT_ID                   AS ProductID,
-                SKU                          AS Sku,
-                PRODUCT_NAME                 AS ProductName,
-                PRODUCT_SHORT_NAME           AS ProductShortName,
-                ORGANIZATION_KEY             AS OrganizationKey,
-                FORMULATION_ID               AS FormulationId,
-                FORMULATION_VERSION          AS FormulationVersion,
-                DOSAGE_FORM                  AS DosageForm,
-                DOSAGE_STRENGTH              AS DosageStrength,
-                ROUTE_OF_ADMINISTRATION      AS RouteOfAdministration,
-                THERAPEUTIC_CLASS            AS TherapeuticClass,
-                THERAPEUTIC_AREA             AS TherapeuticArea,
-                PRODUCT_CATEGORY             AS ProductCategory,
-                IS_BIOSIMILAR                AS IsBiosimilar,
-                REFERENCE_PRODUCT_ID         AS ReferenceProductId,
-                INN_NAME                     AS InnName,
-                IDMP_MPID                    AS IdmpMpid,
-                NDA_BLA_NUMBER               AS NdaBlaNumber,
-                EMA_PRODUCT_NUMBER           AS EmaProductNumber,
-                STANDARD_YIELD_PCT           AS StandardYieldPct,
-                YIELD_LOWER_ALERT_PCT        AS YieldLowerAlertPct,
-                YIELD_LOWER_ACTION_PCT       AS YieldLowerActionPct,
-                SHELF_LIFE_MONTHS            AS ShelfLifeMonths,
-                STORAGE_CONDITION            AS StorageCondition,
-                EFFECTIVE_START_DATE         AS EffectiveStartDate,
-                EFFECTIVE_END_DATE           AS EffectiveEndDate,
-                CURRENT_FLAG                 AS CurrentFlag,
-                SCD_VERSION                  AS ScdVersion,
-                SOURCE_PRODUCT_CODE_MART_A   AS SourceProductCodeMartA,
-                SOURCE_PRODUCT_CODE_OPS      AS SourceProductCodeOps,
-                _SOURCE_SYSTEM               AS SourceSystem,
-                _SOURCE_KEY                  AS SourceKey,
-                CREATED_AT                   AS CreatedAt,
-                CREATED_BY                   AS CreatedBy,
-                UPDATED_AT                   AS UpdatedAt,
-                UPDATED_BY                   AS UpdatedBy,
-                IS_DELETED                   AS IsDeleted,
-                DELETED_AT                   AS DeletedAt
-            FROM CANONICAL.DIM_PRODUCT;
+                DEFAULT,
+                PRODUCT_ID,
+                SKU,
+                PRODUCT_NAME,
+                PRODUCT_SHORT_NAME,
+                CAST(ORGANIZATION_KEY AS INTEGER),
+                FORMULATION_ID,
+                FORMULATION_VERSION,
+                DOSAGE_FORM,
+                DOSAGE_STRENGTH,
+                ROUTE_OF_ADMINISTRATION,
+                THERAPEUTIC_CLASS,
+                THERAPEUTIC_AREA,
+                PRODUCT_CATEGORY,
+                IS_BIOSIMILAR,
+                REFERENCE_PRODUCT_ID,
+                INN_NAME,
+                IDMP_MPID,
+                NDA_BLA_NUMBER,
+                EMA_PRODUCT_NUMBER,
+                STANDARD_YIELD_PCT,
+                YIELD_LOWER_ALERT_PCT,
+                YIELD_LOWER_ACTION_PCT,
+                SHELF_LIFE_MONTHS,
+                STORAGE_CONDITION,
+                EFFECTIVE_START_DATE,
+                EFFECTIVE_END_DATE,
+                CURRENT_FLAG,
+                SCD_VERSION,
+                SOURCE_PRODUCT_CODE_MART_A,
+                SOURCE_PRODUCT_CODE_OPS,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.DIM_PRODUCT
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
 
-            v_rows_inserted := SQLROWCOUNT();
+            v_rows_inserted := SQLROWCOUNT;
 
             COMMIT;
 
             v_status := 'SUCCESS';
             v_error_message := NULL;
-            EXIT;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_DIM_PRODUCT', 'DIM_PRODUCT',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_DIM_PRODUCT completed';
 
         EXCEPTION
             WHEN OTHER THEN
                 v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
                 ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_DIM_PRODUCT', 'DIM_PRODUCT',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
         END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
     END WHILE;
 
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_DIM_PRODUCT - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
     END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_DIM_PRODUCT completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_DIM_PRODUCT - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
 END;
 $$;
 ```
 
+---
+
 ```sql
 -- ============================================================
 -- Procedure: MIGRATE_DIM_MATERIAL_LOT
--- Target table: ANALYTICAL.DIM_MATERIAL_LOT
--- Source canonical entity: CANONICAL.DIM_MATERIAL_LOT
+-- Target table: DIM_MATERIAL_LOT (ANALYTICAL schema)
+-- Source canonical entity: DIM_MATERIAL_LOT (CANONICAL schema)
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_DIM_MATERIAL_LOT()
 RETURNS STRING
@@ -522,25 +523,18 @@ EXECUTE AS CALLER
 AS
 $$
 DECLARE
-    v_proc_name           STRING   := 'MIGRATE_DIM_MATERIAL_LOT';
-    v_target_table        STRING   := 'ANALYTICAL.DIM_MATERIAL_LOT';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
 BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
 
     WHILE (v_attempt < v_max_attempts) DO
         v_attempt := v_attempt + 1;
@@ -549,110 +543,117 @@ BEGIN
 
             TRUNCATE TABLE ANALYTICAL.DIM_MATERIAL_LOT;
 
-            INSERT INTO ANALYTICAL.DIM_MATERIAL_LOT
-            (
-                MaterialLotKey,
-                LotNumber,
-                ProductKey,
-                FacilityKey,
-                LotType,
-                ManufactureDate,
-                ExpiryDate,
-                RetestDate,
-                QuantityProduced,
-                QuantityUnit,
-                LotStatus,
-                CertificateOfAnalysis,
-                VendorLotNumber,
-                VendorId,
-                SourceSystem,
-                SourceKey,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
+            INSERT INTO ANALYTICAL.DIM_MATERIAL_LOT (
+                MATERIALLOTKEY,
+                LOTNUMBER,
+                PRODUCTKEY,
+                FACILITYKEY,
+                LOTTYPE,
+                MANUFACTUREDATE,
+                EXPIRYDATE,
+                RETESTDATE,
+                QUANTITYPRODUCED,
+                QUANTITYUNIT,
+                LOTSTATUS,
+                CERTIFICATEOFANALYSIS,
+                VENDORLOTNUMBER,
+                VENDORID,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
             )
             SELECT
-                MATERIAL_LOT_KEY         AS MaterialLotKey,
-                LOT_NUMBER               AS LotNumber,
-                PRODUCT_KEY              AS ProductKey,
-                FACILITY_KEY             AS FacilityKey,
-                LOT_TYPE                 AS LotType,
-                MANUFACTURE_DATE         AS ManufactureDate,
-                EXPIRY_DATE              AS ExpiryDate,
-                RETEST_DATE              AS RetestDate,
-                QUANTITY_PRODUCED        AS QuantityProduced,
-                QUANTITY_UNIT            AS QuantityUnit,
-                LOT_STATUS               AS LotStatus,
-                CERTIFICATE_OF_ANALYSIS  AS CertificateOfAnalysis,
-                VENDOR_LOT_NUMBER        AS VendorLotNumber,
-                VENDOR_ID                AS VendorId,
-                _SOURCE_SYSTEM           AS SourceSystem,
-                _SOURCE_KEY              AS SourceKey,
-                CREATED_AT               AS CreatedAt,
-                CREATED_BY               AS CreatedBy,
-                UPDATED_AT               AS UpdatedAt,
-                UPDATED_BY               AS UpdatedBy,
-                IS_DELETED               AS IsDeleted,
-                DELETED_AT               AS DeletedAt
-            FROM CANONICAL.DIM_MATERIAL_LOT;
+                DEFAULT,
+                LOT_NUMBER,
+                CAST(PRODUCT_KEY AS INTEGER),
+                CAST(FACILITY_KEY AS INTEGER),
+                LOT_TYPE,
+                MANUFACTURE_DATE,
+                EXPIRY_DATE,
+                RETEST_DATE,
+                QUANTITY_PRODUCED,
+                QUANTITY_UNIT,
+                LOT_STATUS,
+                CERTIFICATE_OF_ANALYSIS,
+                VENDOR_LOT_NUMBER,
+                VENDOR_ID,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.DIM_MATERIAL_LOT
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
 
-            v_rows_inserted := SQLROWCOUNT();
+            v_rows_inserted := SQLROWCOUNT;
 
             COMMIT;
 
             v_status := 'SUCCESS';
             v_error_message := NULL;
-            EXIT;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_DIM_MATERIAL_LOT', 'DIM_MATERIAL_LOT',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_DIM_MATERIAL_LOT completed';
 
         EXCEPTION
             WHEN OTHER THEN
                 v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
                 ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_DIM_MATERIAL_LOT', 'DIM_MATERIAL_LOT',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
         END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
     END WHILE;
 
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_DIM_MATERIAL_LOT - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
     END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_DIM_MATERIAL_LOT completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_DIM_MATERIAL_LOT - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
 END;
 $$;
 ```
 
+---
+
 ```sql
 -- ============================================================
 -- Procedure: MIGRATE_DIM_EQUIPMENT
--- Target table: ANALYTICAL.DIM_EQUIPMENT
--- Source canonical entity: CANONICAL.DIM_EQUIPMENT
+-- Target table: DIM_EQUIPMENT (ANALYTICAL schema)
+-- Source canonical entity: DIM_EQUIPMENT (CANONICAL schema)
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_DIM_EQUIPMENT()
 RETURNS STRING
@@ -661,25 +662,18 @@ EXECUTE AS CALLER
 AS
 $$
 DECLARE
-    v_proc_name           STRING   := 'MIGRATE_DIM_EQUIPMENT';
-    v_target_table        STRING   := 'ANALYTICAL.DIM_EQUIPMENT';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
 BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
 
     WHILE (v_attempt < v_max_attempts) DO
         v_attempt := v_attempt + 1;
@@ -688,144 +682,151 @@ BEGIN
 
             TRUNCATE TABLE ANALYTICAL.DIM_EQUIPMENT;
 
-            INSERT INTO ANALYTICAL.DIM_EQUIPMENT
-            (
-                EquipmentKey,
-                CanonicalEquipmentID,
-                EquipmentName,
-                FacilityKey,
-                FunctionalArea,
-                ProductionUnit,
-                EquipmentModule,
-                AssetClass,
-                AssetSubClass,
-                CriticalityRating,
-                ManufacturerName,
-                ModelNumber,
-                SerialNumber,
-                WorkingVolumeL,
-                InstallationDate,
-                CommissioningDate,
-                QualificationStatus,
-                LastQualificationDate,
-                NextQualificationDate,
-                CalibrationFrequency,
-                LastCalibrationDate,
-                CalibrationDueDate,
-                CalibrationStatus,
-                PlannedRuntimeMinsPerDay,
-                IdealCycleTimeSecs,
-                EquipmentStatus,
-                StatusEffectiveDate,
-                DecommissionDate,
-                SourceEquipIdMartA,
-                SourceAssetCodeOps,
-                SourceEquipCodeMartB,
-                SourceSystem,
-                SourceKey,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
+            INSERT INTO ANALYTICAL.DIM_EQUIPMENT (
+                EQUIPMENTKEY,
+                CANONICALEQUIPMENTID,
+                EQUIPMENTNAME,
+                FACILITYKEY,
+                FUNCTIONALAREA,
+                PRODUCTIONUNIT,
+                EQUIPMENTMODULE,
+                ASSETCLASS,
+                ASSETSUBCLASS,
+                CRITICALITYRATING,
+                MANUFACTURERNAME,
+                MODELNUMBER,
+                SERIALNUMBER,
+                WORKINGVOLUMEL,
+                INSTALLATIONDATE,
+                COMMISSIONINGDATE,
+                QUALIFICATIONSTATUS,
+                LASTQUALIFICATIONDATE,
+                NEXTQUALIFICATIONDATE,
+                CALIBRATIONFREQUENCY,
+                LASTCALIBRATIONDATE,
+                CALIBRATIONDUEDATE,
+                CALIBRATIONSTATUS,
+                PLANNEDRUNTIMEMINSPERDAY,
+                IDEALCYCLETIMESECS,
+                EQUIPMENTSTATUS,
+                STATUSEFFECTIVEDATE,
+                DECOMMISSIONDATE,
+                SOURCEEQUIPIDMARTA,
+                SOURCEASSETCODEOPS,
+                SOURCEEQUIPCODEMARTB,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
             )
             SELECT
-                EQUIPMENT_KEY              AS EquipmentKey,
-                CANONICAL_EQUIPMENT_ID     AS CanonicalEquipmentID,
-                EQUIPMENT_NAME             AS EquipmentName,
-                FACILITY_KEY               AS FacilityKey,
-                FUNCTIONAL_AREA            AS FunctionalArea,
-                PRODUCTION_UNIT            AS ProductionUnit,
-                EQUIPMENT_MODULE           AS EquipmentModule,
-                ASSET_CLASS                AS AssetClass,
-                ASSET_SUBCLASS             AS AssetSubClass,
-                CRITICALITY_RATING         AS CriticalityRating,
-                MANUFACTURER_NAME          AS ManufacturerName,
-                MODEL_NUMBER               AS ModelNumber,
-                SERIAL_NUMBER              AS SerialNumber,
-                WORKING_VOLUME_L           AS WorkingVolumeL,
-                INSTALLATION_DATE          AS InstallationDate,
-                COMMISSIONING_DATE         AS CommissioningDate,
-                QUALIFICATION_STATUS       AS QualificationStatus,
-                LAST_QUALIFICATION_DATE    AS LastQualificationDate,
-                NEXT_QUALIFICATION_DATE    AS NextQualificationDate,
-                CALIBRATION_FREQUENCY      AS CalibrationFrequency,
-                LAST_CALIBRATION_DATE      AS LastCalibrationDate,
-                CALIBRATION_DUE_DATE       AS CalibrationDueDate,
-                CALIBRATION_STATUS         AS CalibrationStatus,
-                PLANNED_RUNTIME_MINS_PER_DAY AS PlannedRuntimeMinsPerDay,
-                IDEAL_CYCLE_TIME_SECS      AS IdealCycleTimeSecs,
-                EQUIPMENT_STATUS           AS EquipmentStatus,
-                STATUS_EFFECTIVE_DATE      AS StatusEffectiveDate,
-                DECOMMISSION_DATE          AS DecommissionDate,
-                SOURCE_EQUIP_ID_MART_A     AS SourceEquipIdMartA,
-                SOURCE_ASSET_CODE_OPS      AS SourceAssetCodeOps,
-                SOURCE_EQUIP_CODE_MART_B   AS SourceEquipCodeMartB,
-                _SOURCE_SYSTEM             AS SourceSystem,
-                _SOURCE_KEY                AS SourceKey,
-                CREATED_AT                 AS CreatedAt,
-                CREATED_BY                 AS CreatedBy,
-                UPDATED_AT                 AS UpdatedAt,
-                UPDATED_BY                 AS UpdatedBy,
-                IS_DELETED                 AS IsDeleted,
-                DELETED_AT                 AS DeletedAt
-            FROM CANONICAL.DIM_EQUIPMENT;
+                DEFAULT,
+                CANONICAL_EQUIPMENT_ID,
+                EQUIPMENT_NAME,
+                CAST(FACILITY_KEY AS INTEGER),
+                FUNCTIONAL_AREA,
+                PRODUCTION_UNIT,
+                EQUIPMENT_MODULE,
+                ASSET_CLASS,
+                ASSET_SUBCLASS,
+                CRITICALITY_RATING,
+                MANUFACTURER_NAME,
+                MODEL_NUMBER,
+                SERIAL_NUMBER,
+                WORKING_VOLUME_L,
+                INSTALLATION_DATE,
+                COMMISSIONING_DATE,
+                QUALIFICATION_STATUS,
+                LAST_QUALIFICATION_DATE,
+                NEXT_QUALIFICATION_DATE,
+                CALIBRATION_FREQUENCY,
+                LAST_CALIBRATION_DATE,
+                CALIBRATION_DUE_DATE,
+                CALIBRATION_STATUS,
+                PLANNED_RUNTIME_MINS_PER_DAY,
+                IDEAL_CYCLE_TIME_SECS,
+                EQUIPMENT_STATUS,
+                STATUS_EFFECTIVE_DATE,
+                DECOMMISSION_DATE,
+                SOURCE_EQUIP_ID_MART_A,
+                SOURCE_ASSET_CODE_OPS,
+                SOURCE_EQUIP_CODE_MART_B,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.DIM_EQUIPMENT
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
 
-            v_rows_inserted := SQLROWCOUNT();
+            v_rows_inserted := SQLROWCOUNT;
 
             COMMIT;
 
             v_status := 'SUCCESS';
             v_error_message := NULL;
-            EXIT;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_DIM_EQUIPMENT', 'DIM_EQUIPMENT',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_DIM_EQUIPMENT completed';
 
         EXCEPTION
             WHEN OTHER THEN
                 v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
                 ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_DIM_EQUIPMENT', 'DIM_EQUIPMENT',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
         END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
     END WHILE;
 
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_DIM_EQUIPMENT - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
     END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_DIM_EQUIPMENT completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_DIM_EQUIPMENT - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
 END;
 $$;
 ```
 
+---
+
 ```sql
 -- ============================================================
 -- Procedure: MIGRATE_DIM_PROCESS_STEP
--- Target table: ANALYTICAL.DIM_PROCESS_STEP
--- Source canonical entity: CANONICAL.DIM_PROCESS_STEP
+-- Target table: DIM_PROCESS_STEP (ANALYTICAL schema)
+-- Source canonical entity: DIM_PROCESS_STEP (CANONICAL schema)
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_DIM_PROCESS_STEP()
 RETURNS STRING
@@ -834,25 +835,18 @@ EXECUTE AS CALLER
 AS
 $$
 DECLARE
-    v_proc_name           STRING   := 'MIGRATE_DIM_PROCESS_STEP';
-    v_target_table        STRING   := 'ANALYTICAL.DIM_PROCESS_STEP';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
 BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
 
     WHILE (v_attempt < v_max_attempts) DO
         v_attempt := v_attempt + 1;
@@ -861,104 +855,111 @@ BEGIN
 
             TRUNCATE TABLE ANALYTICAL.DIM_PROCESS_STEP;
 
-            INSERT INTO ANALYTICAL.DIM_PROCESS_STEP
-            (
-                ProcessStepKey,
-                StepCode,
-                StepName,
-                StepCategory,
-                StepSubCategory,
-                TypicalSequenceOrder,
-                ExpectedDurationMinHrs,
-                ExpectedDurationMaxHrs,
-                ApplicableAssetClasses,
-                IsCcp,
-                IsActive,
-                SourceSystem,
-                SourceKey,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
+            INSERT INTO ANALYTICAL.DIM_PROCESS_STEP (
+                PROCESSSTEPKEY,
+                STEPCODE,
+                STEPNAME,
+                STEPCATEGORY,
+                STEPSUBCATEGORY,
+                TYPICALSEQUENCEORDER,
+                EXPECTEDDURATIONMINHRS,
+                EXPECTEDDURATIONMAXHRS,
+                APPLICABLEASSETCLASSES,
+                ISCCP,
+                ISACTIVE,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
             )
             SELECT
-                PROCESS_STEP_KEY           AS ProcessStepKey,
-                STEP_CODE                  AS StepCode,
-                STEP_NAME                  AS StepName,
-                STEP_CATEGORY              AS StepCategory,
-                STEP_SUBCATEGORY           AS StepSubCategory,
-                TYPICAL_SEQUENCE_ORDER     AS TypicalSequenceOrder,
-                EXPECTED_DURATION_MIN_HRS  AS ExpectedDurationMinHrs,
-                EXPECTED_DURATION_MAX_HRS  AS ExpectedDurationMaxHrs,
-                APPLICABLE_ASSET_CLASSES   AS ApplicableAssetClasses,
-                IS_CCP                     AS IsCcp,
-                IS_ACTIVE                  AS IsActive,
-                _SOURCE_SYSTEM             AS SourceSystem,
-                _SOURCE_KEY                AS SourceKey,
-                CREATED_AT                 AS CreatedAt,
-                CREATED_BY                 AS CreatedBy,
-                UPDATED_AT                 AS UpdatedAt,
-                UPDATED_BY                 AS UpdatedBy,
-                IS_DELETED                 AS IsDeleted,
-                DELETED_AT                 AS DeletedAt
-            FROM CANONICAL.DIM_PROCESS_STEP;
+                DEFAULT,
+                STEP_CODE,
+                STEP_NAME,
+                STEP_CATEGORY,
+                STEP_SUBCATEGORY,
+                TYPICAL_SEQUENCE_ORDER,
+                EXPECTED_DURATION_MIN_HRS,
+                EXPECTED_DURATION_MAX_HRS,
+                APPLICABLE_ASSET_CLASSES,
+                IS_CCP,
+                IS_ACTIVE,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.DIM_PROCESS_STEP
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
 
-            v_rows_inserted := SQLROWCOUNT();
+            v_rows_inserted := SQLROWCOUNT;
 
             COMMIT;
 
             v_status := 'SUCCESS';
             v_error_message := NULL;
-            EXIT;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_DIM_PROCESS_STEP', 'DIM_PROCESS_STEP',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_DIM_PROCESS_STEP completed';
 
         EXCEPTION
             WHEN OTHER THEN
                 v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
                 ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_DIM_PROCESS_STEP', 'DIM_PROCESS_STEP',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
         END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
     END WHILE;
 
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_DIM_PROCESS_STEP - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
     END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_DIM_PROCESS_STEP completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_DIM_PROCESS_STEP - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
 END;
 $$;
 ```
 
+---
+
 ```sql
 -- ============================================================
 -- Procedure: MIGRATE_DIM_PROCESS_PARAMETER
--- Target table: ANALYTICAL.DIM_PROCESS_PARAMETER
--- Source canonical entity: CANONICAL.DIM_PROCESS_PARAMETER
+-- Target table: DIM_PROCESS_PARAMETER (ANALYTICAL schema)
+-- Source canonical entity: DIM_PROCESS_PARAMETER (CANONICAL schema)
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_DIM_PROCESS_PARAMETER()
 RETURNS STRING
@@ -967,25 +968,18 @@ EXECUTE AS CALLER
 AS
 $$
 DECLARE
-    v_proc_name           STRING   := 'MIGRATE_DIM_PROCESS_PARAMETER';
-    v_target_table        STRING   := 'ANALYTICAL.DIM_PROCESS_PARAMETER';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
 BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
 
     WHILE (v_attempt < v_max_attempts) DO
         v_attempt := v_attempt + 1;
@@ -994,116 +988,123 @@ BEGIN
 
             TRUNCATE TABLE ANALYTICAL.DIM_PROCESS_PARAMETER;
 
-            INSERT INTO ANALYTICAL.DIM_PROCESS_PARAMETER
-            (
-                ParameterKey,
-                ParameterCode,
-                ParameterName,
-                ParameterCategory,
-                CanonicalUom,
-                SourceUomMartA,
-                SourceUomOps,
-                SourceUomMartB,
-                ConversionFormulaOps,
-                IsCpp,
-                IsKpa,
-                TypicalTarget,
-                TypicalLsl,
-                TypicalUsl,
-                MeasurementFrequency,
-                InstrumentType,
-                IsActive,
-                SourceSystem,
-                SourceKey,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
+            INSERT INTO ANALYTICAL.DIM_PROCESS_PARAMETER (
+                PARAMETERKEY,
+                PARAMETERCODE,
+                PARAMETERNAME,
+                PARAMETERCATEGORY,
+                CANONICALUOM,
+                SOURCEUOMMARTA,
+                SOURCEUOMOPS,
+                SOURCEUOMMARTB,
+                CONVERSIONFORMULAOPS,
+                ISCPP,
+                ISKPA,
+                TYPICALTARGET,
+                TYPICALLSL,
+                TYPICALUSL,
+                MEASUREMENTFREQUENCY,
+                INSTRUMENTTYPE,
+                ISACTIVE,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
             )
             SELECT
-                PARAMETER_KEY          AS ParameterKey,
-                PARAMETER_CODE         AS ParameterCode,
-                PARAMETER_NAME         AS ParameterName,
-                PARAMETER_CATEGORY     AS ParameterCategory,
-                CANONICAL_UOM          AS CanonicalUom,
-                SOURCE_UOM_MART_A      AS SourceUomMartA,
-                SOURCE_UOM_OPS         AS SourceUomOps,
-                SOURCE_UOM_MART_B      AS SourceUomMartB,
-                CONVERSION_FORMULA_OPS AS ConversionFormulaOps,
-                IS_CPP                 AS IsCpp,
-                IS_KPA                 AS IsKpa,
-                TYPICAL_TARGET         AS TypicalTarget,
-                TYPICAL_LSL            AS TypicalLsl,
-                TYPICAL_USL            AS TypicalUsl,
-                MEASUREMENT_FREQUENCY  AS MeasurementFrequency,
-                INSTRUMENT_TYPE        AS InstrumentType,
-                IS_ACTIVE              AS IsActive,
-                _SOURCE_SYSTEM         AS SourceSystem,
-                _SOURCE_KEY            AS SourceKey,
-                CREATED_AT             AS CreatedAt,
-                CREATED_BY             AS CreatedBy,
-                UPDATED_AT             AS UpdatedAt,
-                UPDATED_BY             AS UpdatedBy,
-                IS_DELETED             AS IsDeleted,
-                DELETED_AT             AS DeletedAt
-            FROM CANONICAL.DIM_PROCESS_PARAMETER;
+                DEFAULT,
+                PARAMETER_CODE,
+                PARAMETER_NAME,
+                PARAMETER_CATEGORY,
+                CANONICAL_UOM,
+                SOURCE_UOM_MART_A,
+                SOURCE_UOM_OPS,
+                SOURCE_UOM_MART_B,
+                CONVERSION_FORMULA_OPS,
+                IS_CPP,
+                IS_KPA,
+                TYPICAL_TARGET,
+                TYPICAL_LSL,
+                TYPICAL_USL,
+                MEASUREMENT_FREQUENCY,
+                INSTRUMENT_TYPE,
+                IS_ACTIVE,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.DIM_PROCESS_PARAMETER
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
 
-            v_rows_inserted := SQLROWCOUNT();
+            v_rows_inserted := SQLROWCOUNT;
 
             COMMIT;
 
             v_status := 'SUCCESS';
             v_error_message := NULL;
-            EXIT;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_DIM_PROCESS_PARAMETER', 'DIM_PROCESS_PARAMETER',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_DIM_PROCESS_PARAMETER completed';
 
         EXCEPTION
             WHEN OTHER THEN
                 v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
                 ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_DIM_PROCESS_PARAMETER', 'DIM_PROCESS_PARAMETER',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
         END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
     END WHILE;
 
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_DIM_PROCESS_PARAMETER - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
     END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_DIM_PROCESS_PARAMETER completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_DIM_PROCESS_PARAMETER - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
 END;
 $$;
 ```
 
+---
+
 ```sql
 -- ============================================================
 -- Procedure: MIGRATE_DIM_QUALITY_DISPOSITION
--- Target table: ANALYTICAL.DIM_QUALITY_DISPOSITION
--- Source canonical entity: CANONICAL.DIM_QUALITY_DISPOSITION
+-- Target table: DIM_QUALITY_DISPOSITION (ANALYTICAL schema)
+-- Source canonical entity: DIM_QUALITY_DISPOSITION (CANONICAL schema)
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_DIM_QUALITY_DISPOSITION()
 RETURNS STRING
@@ -1112,25 +1113,18 @@ EXECUTE AS CALLER
 AS
 $$
 DECLARE
-    v_proc_name           STRING   := 'MIGRATE_DIM_QUALITY_DISPOSITION';
-    v_target_table        STRING   := 'ANALYTICAL.DIM_QUALITY_DISPOSITION';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
 BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
 
     WHILE (v_attempt < v_max_attempts) DO
         v_attempt := v_attempt + 1;
@@ -1139,108 +1133,115 @@ BEGIN
 
             TRUNCATE TABLE ANALYTICAL.DIM_QUALITY_DISPOSITION;
 
-            INSERT INTO ANALYTICAL.DIM_QUALITY_DISPOSITION
-            (
-                DispositionKey,
-                DispositionCode,
-                DispositionName,
-                RequiresInvestigation,
-                CommerciallyReleasable,
-                DeviationImplied,
-                PatientRiskLevel,
-                RegulatoryNotificationRequired,
-                DispositionDescription,
-                IsActive,
-                SourceCodeMartA,
-                SourceCodeMartB,
-                SourceCodeOps,
-                SourceSystem,
-                SourceKey,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
+            INSERT INTO ANALYTICAL.DIM_QUALITY_DISPOSITION (
+                DISPOSITIONKEY,
+                DISPOSITIONCODE,
+                DISPOSITIONNAME,
+                REQUIRESINVESTIGATION,
+                COMMERCIALLYRELEASABLE,
+                DEVIATIONIMPLIED,
+                PATIENTRISKLEVEL,
+                REGULATORYNOTIFICATIONREQUIRED,
+                DISPOSITIONDESCRIPTION,
+                ISACTIVE,
+                SOURCECODEMARTA,
+                SOURCECODEMARTB,
+                SOURCECODEOPS,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
             )
             SELECT
-                DISPOSITION_KEY                 AS DispositionKey,
-                DISPOSITION_CODE                AS DispositionCode,
-                DISPOSITION_NAME                AS DispositionName,
-                REQUIRES_INVESTIGATION          AS RequiresInvestigation,
-                COMMERCIALLY_RELEASABLE         AS CommerciallyReleasable,
-                DEVIATION_IMPLIED               AS DeviationImplied,
-                PATIENT_RISK_LEVEL              AS PatientRiskLevel,
-                REGULATORY_NOTIFICATION_REQUIRED AS RegulatoryNotificationRequired,
-                DISPOSITION_DESCRIPTION         AS DispositionDescription,
-                IS_ACTIVE                       AS IsActive,
-                SOURCE_CODE_MART_A              AS SourceCodeMartA,
-                SOURCE_CODE_MART_B              AS SourceCodeMartB,
-                SOURCE_CODE_OPS                 AS SourceCodeOps,
-                _SOURCE_SYSTEM                  AS SourceSystem,
-                _SOURCE_KEY                     AS SourceKey,
-                CREATED_AT                      AS CreatedAt,
-                CREATED_BY                      AS CreatedBy,
-                UPDATED_AT                      AS UpdatedAt,
-                UPDATED_BY                      AS UpdatedBy,
-                IS_DELETED                      AS IsDeleted,
-                DELETED_AT                      AS DeletedAt
-            FROM CANONICAL.DIM_QUALITY_DISPOSITION;
+                DEFAULT,
+                DISPOSITION_CODE,
+                DISPOSITION_NAME,
+                REQUIRES_INVESTIGATION,
+                COMMERCIALLY_RELEASABLE,
+                DEVIATION_IMPLIED,
+                PATIENT_RISK_LEVEL,
+                REGULATORY_NOTIFICATION_REQUIRED,
+                DISPOSITION_DESCRIPTION,
+                IS_ACTIVE,
+                SOURCE_CODE_MART_A,
+                SOURCE_CODE_MART_B,
+                SOURCE_CODE_OPS,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.DIM_QUALITY_DISPOSITION
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
 
-            v_rows_inserted := SQLROWCOUNT();
+            v_rows_inserted := SQLROWCOUNT;
 
             COMMIT;
 
             v_status := 'SUCCESS';
             v_error_message := NULL;
-            EXIT;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_DIM_QUALITY_DISPOSITION', 'DIM_QUALITY_DISPOSITION',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_DIM_QUALITY_DISPOSITION completed';
 
         EXCEPTION
             WHEN OTHER THEN
                 v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
                 ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_DIM_QUALITY_DISPOSITION', 'DIM_QUALITY_DISPOSITION',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
         END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
     END WHILE;
 
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_DIM_QUALITY_DISPOSITION - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
     END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_DIM_QUALITY_DISPOSITION completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_DIM_QUALITY_DISPOSITION - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
 END;
 $$;
 ```
 
+---
+
 ```sql
 -- ============================================================
 -- Procedure: MIGRATE_DIM_DEVIATION_CATEGORY
--- Target table: ANALYTICAL.DIM_DEVIATION_CATEGORY
--- Source canonical entity: CANONICAL.DIM_DEVIATION_CATEGORY
+-- Target table: DIM_DEVIATION_CATEGORY (ANALYTICAL schema)
+-- Source canonical entity: DIM_DEVIATION_CATEGORY (CANONICAL schema)
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_DIM_DEVIATION_CATEGORY()
 RETURNS STRING
@@ -1249,25 +1250,18 @@ EXECUTE AS CALLER
 AS
 $$
 DECLARE
-    v_proc_name           STRING   := 'MIGRATE_DIM_DEVIATION_CATEGORY';
-    v_target_table        STRING   := 'ANALYTICAL.DIM_DEVIATION_CATEGORY';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
 BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
 
     WHILE (v_attempt < v_max_attempts) DO
         v_attempt := v_attempt + 1;
@@ -1276,94 +1270,99 @@ BEGIN
 
             TRUNCATE TABLE ANALYTICAL.DIM_DEVIATION_CATEGORY;
 
-            INSERT INTO ANALYTICAL.DIM_DEVIATION_CATEGORY
-            (
-                DeviationCategoryKey,
-                CategoryCode,
-                CategoryName,
-                CategoryGroup,
-                Description,
-                CapaTypicallyRequired,
-                IsActive,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
+            INSERT INTO ANALYTICAL.DIM_DEVIATION_CATEGORY (
+                DEVIATIONCATEGORYKEY,
+                CATEGORYCODE,
+                CATEGORYNAME,
+                CATEGORYGROUP,
+                DESCRIPTION,
+                CAPATYPICALLYREQUIRED,
+                ISACTIVE,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
             )
             SELECT
-                DEVIATION_CATEGORY_KEY  AS DeviationCategoryKey,
-                CATEGORY_CODE           AS CategoryCode,
-                CATEGORY_NAME           AS CategoryName,
-                CATEGORY_GROUP          AS CategoryGroup,
-                DESCRIPTION             AS Description,
-                CAPA_TYPICALLY_REQUIRED AS CapaTypicallyRequired,
-                IS_ACTIVE               AS IsActive,
-                CREATED_AT              AS CreatedAt,
-                CREATED_BY              AS CreatedBy,
-                UPDATED_AT              AS UpdatedAt,
-                UPDATED_BY              AS UpdatedBy,
-                IS_DELETED              AS IsDeleted,
-                DELETED_AT              AS DeletedAt
-            FROM CANONICAL.DIM_DEVIATION_CATEGORY;
+                DEFAULT,
+                CATEGORY_CODE,
+                CATEGORY_NAME,
+                CATEGORY_GROUP,
+                DESCRIPTION,
+                CAPA_TYPICALLY_REQUIRED,
+                IS_ACTIVE,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.DIM_DEVIATION_CATEGORY
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
 
-            v_rows_inserted := SQLROWCOUNT();
+            v_rows_inserted := SQLROWCOUNT;
 
             COMMIT;
 
             v_status := 'SUCCESS';
             v_error_message := NULL;
-            EXIT;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_DIM_DEVIATION_CATEGORY', 'DIM_DEVIATION_CATEGORY',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_DIM_DEVIATION_CATEGORY completed';
 
         EXCEPTION
             WHEN OTHER THEN
                 v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
                 ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_DIM_DEVIATION_CATEGORY', 'DIM_DEVIATION_CATEGORY',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
         END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
     END WHILE;
 
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_DIM_DEVIATION_CATEGORY - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
     END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_DIM_DEVIATION_CATEGORY completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_DIM_DEVIATION_CATEGORY - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
 END;
 $$;
 ```
 
+---
+
 ```sql
 -- ============================================================
 -- Procedure: MIGRATE_DIM_OPERATOR
--- Target table: ANALYTICAL.DIM_OPERATOR
--- Source canonical entity: CANONICAL.DIM_OPERATOR
--- Notes: Contains PII (FullName). FullName is masked to NULL to avoid
---        storing clear-text PII in the analytical model.
+-- Target table: DIM_OPERATOR (ANALYTICAL schema)
+-- Source canonical entity: DIM_OPERATOR (CANONICAL schema)
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_DIM_OPERATOR()
 RETURNS STRING
@@ -1372,25 +1371,18 @@ EXECUTE AS CALLER
 AS
 $$
 DECLARE
-    v_proc_name           STRING   := 'MIGRATE_DIM_OPERATOR';
-    v_target_table        STRING   := 'ANALYTICAL.DIM_OPERATOR';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
 BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
 
     WHILE (v_attempt < v_max_attempts) DO
         v_attempt := v_attempt + 1;
@@ -1399,1096 +1391,109 @@ BEGIN
 
             TRUNCATE TABLE ANALYTICAL.DIM_OPERATOR;
 
-            INSERT INTO ANALYTICAL.DIM_OPERATOR
-            (
-                OperatorKey,
-                OperatorID,
-                FullName,
-                RoleCode,
-                FacilityKey,
-                Department,
-                IsGmpTrained,
-                TrainingExpiryDate,
-                EsignatureEnabled,
-                EmploymentStatus,
-                SourceSystem,
-                SourceKey,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
+            INSERT INTO ANALYTICAL.DIM_OPERATOR (
+                OPERATORKEY,
+                OPERATORID,
+                FULLNAME,
+                ROLECODE,
+                FACILITYKEY,
+                DEPARTMENT,
+                ISGMPTRAINED,
+                TRAININGEXPIRYDATE,
+                ESIGNATUREENABLED,
+                EMPLOYMENTSTATUS,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
             )
             SELECT
-                OPERATOR_KEY          AS OperatorKey,
-                OPERATOR_ID           AS OperatorID,
-                -- PII masking: do not store clear-text names
-                NULL                  AS FullName,
-                ROLE_CODE             AS RoleCode,
-                FACILITY_KEY          AS FacilityKey,
-                DEPARTMENT            AS Department,
-                IS_GMP_TRAINED        AS IsGmpTrained,
-                TRAINING_EXPIRY_DATE  AS TrainingExpiryDate,
-                ESIGNATURE_ENABLED    AS EsignatureEnabled,
-                EMPLOYMENT_STATUS     AS EmploymentStatus,
-                _SOURCE_SYSTEM        AS SourceSystem,
-                _SOURCE_KEY           AS SourceKey,
-                CREATED_AT            AS CreatedAt,
-                CREATED_BY            AS CreatedBy,
-                UPDATED_AT            AS UpdatedAt,
-                UPDATED_BY            AS UpdatedBy,
-                IS_DELETED            AS IsDeleted,
-                DELETED_AT            AS DeletedAt
-            FROM CANONICAL.DIM_OPERATOR;
+                DEFAULT,
+                OPERATOR_ID,
+                FULL_NAME,
+                ROLE_CODE,
+                CAST(FACILITY_KEY AS INTEGER),
+                DEPARTMENT,
+                IS_GMP_TRAINED,
+                TRAINING_EXPIRY_DATE,
+                ESIGNATURE_ENABLED,
+                EMPLOYMENT_STATUS,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.DIM_OPERATOR
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
 
-            v_rows_inserted := SQLROWCOUNT();
+            v_rows_inserted := SQLROWCOUNT;
 
             COMMIT;
 
             v_status := 'SUCCESS';
             v_error_message := NULL;
-            EXIT;
+            v_end_time := CURRENT_TIMESTAMP();
 
-        EXCEPTION
-            WHEN OTHER THEN
-                v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
-                ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
-        END;
-    END WHILE;
-
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
-    END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_DIM_OPERATOR completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_DIM_OPERATOR - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
-END;
-$$;
-```
-
-```sql
--- ============================================================
--- Procedure: MIGRATE_FACT_PRODUCTION_ORDER
--- Target table: ANALYTICAL.FACT_PRODUCTION_ORDER
--- Source canonical entity: CANONICAL.FACT_PRODUCTION_ORDER
--- ============================================================
-CREATE OR REPLACE PROCEDURE MIGRATE_FACT_PRODUCTION_ORDER()
-RETURNS STRING
-LANGUAGE SQL
-EXECUTE AS CALLER
-AS
-$$
-DECLARE
-    v_proc_name           STRING   := 'MIGRATE_FACT_PRODUCTION_ORDER';
-    v_target_table        STRING   := 'ANALYTICAL.FACT_PRODUCTION_ORDER';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
-BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
-
-    WHILE (v_attempt < v_max_attempts) DO
-        v_attempt := v_attempt + 1;
-        BEGIN
-            BEGIN TRANSACTION;
-
-            TRUNCATE TABLE ANALYTICAL.FACT_PRODUCTION_ORDER;
-
-            INSERT INTO ANALYTICAL.FACT_PRODUCTION_ORDER
-            (
-                ProductionOrderKey,
-                CanonicalBatchID,
-                ErpOrderNumber,
-                MesBatchReference,
-                GmpLotNumber,
-                FacilityKey,
-                ProductKey,
-                PrimaryEquipmentKey,
-                DispositionKey,
-                PlannedStartUTC,
-                PlannedEndUTC,
-                PlannedQuantity,
-                QuantityUom,
-                ActualStartUTC,
-                ActualEndUTC,
-                ActualQuantity,
-                YieldPct,
-                YieldVariancePct,
-                OeeAvailabilityPct,
-                OeePerformancePct,
-                OeeQualityPct,
-                OeeOverallPct,
-                BatchStatus,
-                DeviationCount,
-                IsGoldenBatch,
-                GoldenBatchReference,
-                ShiftAtStart,
-                ShiftSupervisorKey,
-                SourceBatchIdMartA,
-                SourceBatchIdOps,
-                SourceOrderNumOps,
-                SourceSystem,
-                SourceKey,
-                LoadedAtUTC,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
             )
-            SELECT
-                PRODUCTION_ORDER_KEY    AS ProductionOrderKey,
-                CANONICAL_BATCH_ID      AS CanonicalBatchID,
-                ERP_ORDER_NUMBER        AS ErpOrderNumber,
-                MES_BATCH_REFERENCE     AS MesBatchReference,
-                GMP_LOT_NUMBER          AS GmpLotNumber,
-                FACILITY_KEY            AS FacilityKey,
-                PRODUCT_KEY             AS ProductKey,
-                PRIMARY_EQUIPMENT_KEY   AS PrimaryEquipmentKey,
-                DISPOSITION_KEY         AS DispositionKey,
-                PLANNED_START_UTC       AS PlannedStartUTC,
-                PLANNED_END_UTC         AS PlannedEndUTC,
-                PLANNED_QUANTITY        AS PlannedQuantity,
-                QUANTITY_UOM            AS QuantityUom,
-                ACTUAL_START_UTC        AS ActualStartUTC,
-                ACTUAL_END_UTC          AS ActualEndUTC,
-                ACTUAL_QUANTITY         AS ActualQuantity,
-                YIELD_PCT               AS YieldPct,
-                YIELD_VARIANCE_PCT      AS YieldVariancePct,
-                OEE_AVAILABILITY_PCT    AS OeeAvailabilityPct,
-                OEE_PERFORMANCE_PCT     AS OeePerformancePct,
-                OEE_QUALITY_PCT         AS OeeQualityPct,
-                OEE_OVERALL_PCT         AS OeeOverallPct,
-                BATCH_STATUS            AS BatchStatus,
-                DEVIATION_COUNT         AS DeviationCount,
-                IS_GOLDEN_BATCH         AS IsGoldenBatch,
-                GOLDEN_BATCH_REFERENCE  AS GoldenBatchReference,
-                SHIFT_AT_START          AS ShiftAtStart,
-                SHIFT_SUPERVISOR_KEY    AS ShiftSupervisorKey,
-                SOURCE_BATCH_ID_MART_A  AS SourceBatchIdMartA,
-                SOURCE_BATCH_ID_OPS     AS SourceBatchIdOps,
-                SOURCE_ORDER_NUM_OPS    AS SourceOrderNumOps,
-                _SOURCE_SYSTEM          AS SourceSystem,
-                _SOURCE_KEY             AS SourceKey,
-                _LOADED_AT_UTC          AS LoadedAtUTC,
-                CREATED_AT              AS CreatedAt,
-                CREATED_BY              AS CreatedBy,
-                UPDATED_AT              AS UpdatedAt,
-                UPDATED_BY              AS UpdatedBy,
-                IS_DELETED              AS IsDeleted,
-                DELETED_AT              AS DeletedAt
-            FROM CANONICAL.FACT_PRODUCTION_ORDER;
+            VALUES (
+                'MIGRATE_DIM_OPERATOR', 'DIM_OPERATOR',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
 
-            v_rows_inserted := SQLROWCOUNT();
-
-            COMMIT;
-
-            v_status := 'SUCCESS';
-            v_error_message := NULL;
-            EXIT;
+            RETURN 'SUCCESS: MIGRATE_DIM_OPERATOR completed';
 
         EXCEPTION
             WHEN OTHER THEN
                 v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
                 ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_DIM_OPERATOR', 'DIM_OPERATOR',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
         END;
-    END WHILE;
 
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
-    END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_FACT_PRODUCTION_ORDER completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_FACT_PRODUCTION_ORDER - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
-END;
-$$;
-```
-
-```sql
--- ============================================================
--- Procedure: MIGRATE_FACT_BATCH_STEP
--- Target table: ANALYTICAL.FACT_BATCH_STEP
--- Source canonical entity: CANONICAL.FACT_BATCH_STEP
--- ============================================================
-CREATE OR REPLACE PROCEDURE MIGRATE_FACT_BATCH_STEP()
-RETURNS STRING
-LANGUAGE SQL
-EXECUTE AS CALLER
-AS
-$$
-DECLARE
-    v_proc_name           STRING   := 'MIGRATE_FACT_BATCH_STEP';
-    v_target_table        STRING   := 'ANALYTICAL.FACT_BATCH_STEP';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
-BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
-
-    WHILE (v_attempt < v_max_attempts) DO
-        v_attempt := v_attempt + 1;
-        BEGIN
-            BEGIN TRANSACTION;
-
-            TRUNCATE TABLE ANALYTICAL.FACT_BATCH_STEP;
-
-            INSERT INTO ANALYTICAL.FACT_BATCH_STEP
-            (
-                BatchStepKey,
-                ProductionOrderKey,
-                CanonicalBatchID,
-                ProcessStepKey,
-                EquipmentKey,
-                StepSequence,
-                StepStartUTC,
-                StepEndUTC,
-                StepDurationHrs,
-                InputQuantity,
-                OutputQuantity,
-                QuantityUom,
-                StepYieldPct,
-                StepStatus,
-                OperatorKey,
-                VerifierKey,
-                EsignatureTimestampUTC,
-                EsignatureMeaning,
-                HasDeviation,
-                DeviationCount,
-                StepNotes,
-                SourceRunIdMartA,
-                SourceStepIdOps,
-                SourceSystem,
-                SourceKey,
-                LoadedAtUTC,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
-            )
-            SELECT
-                BATCH_STEP_KEY           AS BatchStepKey,
-                PRODUCTION_ORDER_KEY     AS ProductionOrderKey,
-                CANONICAL_BATCH_ID       AS CanonicalBatchID,
-                PROCESS_STEP_KEY         AS ProcessStepKey,
-                EQUIPMENT_KEY            AS EquipmentKey,
-                STEP_SEQUENCE            AS StepSequence,
-                STEP_START_UTC           AS StepStartUTC,
-                STEP_END_UTC             AS StepEndUTC,
-                STEP_DURATION_HRS        AS StepDurationHrs,
-                INPUT_QUANTITY           AS InputQuantity,
-                OUTPUT_QUANTITY          AS OutputQuantity,
-                QUANTITY_UOM             AS QuantityUom,
-                STEP_YIELD_PCT           AS StepYieldPct,
-                STEP_STATUS              AS StepStatus,
-                OPERATOR_KEY             AS OperatorKey,
-                VERIFIER_KEY             AS VerifierKey,
-                ESIGNATURE_TIMESTAMP_UTC AS EsignatureTimestampUTC,
-                ESIGNATURE_MEANING       AS EsignatureMeaning,
-                HAS_DEVIATION            AS HasDeviation,
-                DEVIATION_COUNT          AS DeviationCount,
-                STEP_NOTES               AS StepNotes,
-                SOURCE_RUN_ID_MART_A     AS SourceRunIdMartA,
-                SOURCE_STEP_ID_OPS       AS SourceStepIdOps,
-                _SOURCE_SYSTEM           AS SourceSystem,
-                _SOURCE_KEY              AS SourceKey,
-                _LOADED_AT_UTC           AS LoadedAtUTC,
-                CREATED_AT               AS CreatedAt,
-                CREATED_BY               AS CreatedBy,
-                UPDATED_AT               AS UpdatedAt,
-                UPDATED_BY               AS UpdatedBy,
-                IS_DELETED               AS IsDeleted,
-                DELETED_AT               AS DeletedAt
-            FROM CANONICAL.FACT_BATCH_STEP;
-
-            v_rows_inserted := SQLROWCOUNT();
-
-            COMMIT;
-
-            v_status := 'SUCCESS';
-            v_error_message := NULL;
+        IF (v_status = 'SUCCESS') THEN
             EXIT;
-
-        EXCEPTION
-            WHEN OTHER THEN
-                v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
-                ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
-        END;
+        END IF;
     END WHILE;
 
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_DIM_OPERATOR - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
     END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_FACT_BATCH_STEP completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_FACT_BATCH_STEP - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
 END;
 $$;
 ```
 
-```sql
--- ============================================================
--- Procedure: MIGRATE_FACT_EQUIPMENT_TELEMETRY
--- Target table: ANALYTICAL.FACT_EQUIPMENT_TELEMETRY
--- Source canonical entity: CANONICAL.FACT_EQUIPMENT_TELEMETRY
--- ============================================================
-CREATE OR REPLACE PROCEDURE MIGRATE_FACT_EQUIPMENT_TELEMETRY()
-RETURNS STRING
-LANGUAGE SQL
-EXECUTE AS CALLER
-AS
-$$
-DECLARE
-    v_proc_name           STRING   := 'MIGRATE_FACT_EQUIPMENT_TELEMETRY';
-    v_target_table        STRING   := 'ANALYTICAL.FACT_EQUIPMENT_TELEMETRY';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
-BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
-
-    WHILE (v_attempt < v_max_attempts) DO
-        v_attempt := v_attempt + 1;
-        BEGIN
-            BEGIN TRANSACTION;
-
-            TRUNCATE TABLE ANALYTICAL.FACT_EQUIPMENT_TELEMETRY;
-
-            INSERT INTO ANALYTICAL.FACT_EQUIPMENT_TELEMETRY
-            (
-                TelemetryKey,
-                EquipmentKey,
-                BatchStepKey,
-                ProductionOrderKey,
-                CanonicalBatchID,
-                ParameterKey,
-                ReadingTimestampUTC,
-                CanonicalValue,
-                CanonicalUom,
-                SourceValue,
-                SourceUom,
-                ConversionApplied,
-                TargetValue,
-                LowerSpecLimit,
-                UpperSpecLimit,
-                LowerAlertLimit,
-                UpperAlertLimit,
-                WithinSpecification,
-                WithinAlert,
-                DeviationFromTarget,
-                GoldenBatchValue,
-                GoldenBatchDeviation,
-                AggregationType,
-                SourceSystemType,
-                SourceReadingIdMartA,
-                SourceReadingIdOps,
-                SourceSystem,
-                SourceKey,
-                LoadedAtUTC,
-                CreatedAt,
-                CreatedBy,
-                IsDeleted,
-                DeletedAt
-            )
-            SELECT
-                TELEMETRY_KEY           AS TelemetryKey,
-                EQUIPMENT_KEY           AS EquipmentKey,
-                BATCH_STEP_KEY          AS BatchStepKey,
-                PRODUCTION_ORDER_KEY    AS ProductionOrderKey,
-                CANONICAL_BATCH_ID      AS CanonicalBatchID,
-                PARAMETER_KEY           AS ParameterKey,
-                READING_TIMESTAMP_UTC   AS ReadingTimestampUTC,
-                CANONICAL_VALUE         AS CanonicalValue,
-                CANONICAL_UOM           AS CanonicalUom,
-                SOURCE_VALUE            AS SourceValue,
-                SOURCE_UOM              AS SourceUom,
-                CONVERSION_APPLIED      AS ConversionApplied,
-                TARGET_VALUE            AS TargetValue,
-                LOWER_SPEC_LIMIT        AS LowerSpecLimit,
-                UPPER_SPEC_LIMIT        AS UpperSpecLimit,
-                LOWER_ALERT_LIMIT       AS LowerAlertLimit,
-                UPPER_ALERT_LIMIT       AS UpperAlertLimit,
-                WITHIN_SPECIFICATION    AS WithinSpecification,
-                WITHIN_ALERT            AS WithinAlert,
-                DEVIATION_FROM_TARGET   AS DeviationFromTarget,
-                GOLDEN_BATCH_VALUE      AS GoldenBatchValue,
-                GOLDEN_BATCH_DEVIATION  AS GoldenBatchDeviation,
-                AGGREGATION_TYPE        AS AggregationType,
-                SOURCE_SYSTEM_TYPE      AS SourceSystemType,
-                SOURCE_READING_ID_MART_A AS SourceReadingIdMartA,
-                SOURCE_READING_ID_OPS   AS SourceReadingIdOps,
-                _SOURCE_SYSTEM          AS SourceSystem,
-                _SOURCE_KEY             AS SourceKey,
-                _LOADED_AT_UTC          AS LoadedAtUTC,
-                CREATED_AT              AS CreatedAt,
-                CREATED_BY              AS CreatedBy,
-                IS_DELETED              AS IsDeleted,
-                DELETED_AT              AS DeletedAt
-            FROM CANONICAL.FACT_EQUIPMENT_TELEMETRY;
-
-            v_rows_inserted := SQLROWCOUNT();
-
-            COMMIT;
-
-            v_status := 'SUCCESS';
-            v_error_message := NULL;
-            EXIT;
-
-        EXCEPTION
-            WHEN OTHER THEN
-                v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
-                ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
-        END;
-    END WHILE;
-
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
-    END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_FACT_EQUIPMENT_TELEMETRY completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_FACT_EQUIPMENT_TELEMETRY - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
-END;
-$$;
-```
-
-```sql
--- ============================================================
--- Procedure: MIGRATE_FACT_DEVIATION
--- Target table: ANALYTICAL.FACT_DEVIATION
--- Source canonical entity: CANONICAL.FACT_DEVIATION
--- ============================================================
-CREATE OR REPLACE PROCEDURE MIGRATE_FACT_DEVIATION()
-RETURNS STRING
-LANGUAGE SQL
-EXECUTE AS CALLER
-AS
-$$
-DECLARE
-    v_proc_name           STRING   := 'MIGRATE_FACT_DEVIATION';
-    v_target_table        STRING   := 'ANALYTICAL.FACT_DEVIATION';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
-BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
-
-    WHILE (v_attempt < v_max_attempts) DO
-        v_attempt := v_attempt + 1;
-        BEGIN
-            BEGIN TRANSACTION;
-
-            TRUNCATE TABLE ANALYTICAL.FACT_DEVIATION;
-
-            INSERT INTO ANALYTICAL.FACT_DEVIATION
-            (
-                DeviationKey,
-                CanonicalDeviationID,
-                ProductionOrderKey,
-                BatchStepKey,
-                TelemetryKey,
-                EquipmentKey,
-                ParameterKey,
-                DeviationCategoryKey,
-                FacilityKey,
-                CanonicalBatchID,
-                DetectedTimestampUTC,
-                DetectedByKey,
-                DetectionMethod,
-                SeverityCode,
-                PotentialImpact,
-                DeviationDescription,
-                InvestigationStatus,
-                AssignedToKey,
-                InvestigationStartUTC,
-                InvestigationEndUTC,
-                RootCauseCode,
-                RootCauseDescription,
-                CapaRequired,
-                CapaReferenceID,
-                CapaDueDate,
-                CapaClosedDate,
-                ClosedTimestampUTC,
-                ClosedByKey,
-                ResolutionSummary,
-                RegulatoryNotificationRequired,
-                RegulatoryNotifiedDate,
-                SourceDevIdMartA,
-                SourceDevNumOps,
-                SourceSystem,
-                SourceKey,
-                LoadedAtUTC,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
-            )
-            SELECT
-                DEVIATION_KEY                 AS DeviationKey,
-                CANONICAL_DEVIATION_ID       AS CanonicalDeviationID,
-                PRODUCTION_ORDER_KEY         AS ProductionOrderKey,
-                BATCH_STEP_KEY               AS BatchStepKey,
-                TELEMETRY_KEY                AS TelemetryKey,
-                EQUIPMENT_KEY                AS EquipmentKey,
-                PARAMETER_KEY                AS ParameterKey,
-                DEVIATION_CATEGORY_KEY       AS DeviationCategoryKey,
-                FACILITY_KEY                 AS FacilityKey,
-                CANONICAL_BATCH_ID           AS CanonicalBatchID,
-                DETECTED_TIMESTAMP_UTC       AS DetectedTimestampUTC,
-                DETECTED_BY_KEY              AS DetectedByKey,
-                DETECTION_METHOD             AS DetectionMethod,
-                SEVERITY_CODE                AS SeverityCode,
-                POTENTIAL_IMPACT             AS PotentialImpact,
-                DEVIATION_DESCRIPTION        AS DeviationDescription,
-                INVESTIGATION_STATUS         AS InvestigationStatus,
-                ASSIGNED_TO_KEY              AS AssignedToKey,
-                INVESTIGATION_START_UTC      AS InvestigationStartUTC,
-                INVESTIGATION_END_UTC        AS InvestigationEndUTC,
-                ROOT_CAUSE_CODE             AS RootCauseCode,
-                ROOT_CAUSE_DESCRIPTION      AS RootCauseDescription,
-                CAPA_REQUIRED               AS CapaRequired,
-                CAPA_REFERENCE_ID           AS CapaReferenceID,
-                CAPA_DUE_DATE               AS CapaDueDate,
-                CAPA_CLOSED_DATE            AS CapaClosedDate,
-                CLOSED_TIMESTAMP_UTC        AS ClosedTimestampUTC,
-                CLOSED_BY_KEY               AS ClosedByKey,
-                RESOLUTION_SUMMARY          AS ResolutionSummary,
-                REGULATORY_NOTIFICATION_REQUIRED AS RegulatoryNotificationRequired,
-                REGULATORY_NOTIFIED_DATE    AS RegulatoryNotifiedDate,
-                SOURCE_DEV_ID_MART_A        AS SourceDevIdMartA,
-                SOURCE_DEV_NUM_OPS          AS SourceDevNumOps,
-                _SOURCE_SYSTEM              AS SourceSystem,
-                _SOURCE_KEY                 AS SourceKey,
-                _LOADED_AT_UTC              AS LoadedAtUTC,
-                CREATED_AT                  AS CreatedAt,
-                CREATED_BY                  AS CreatedBy,
-                UPDATED_AT                  AS UpdatedAt,
-                UPDATED_BY                  AS UpdatedBy,
-                IS_DELETED                  AS IsDeleted,
-                DELETED_AT                  AS DeletedAt
-            FROM CANONICAL.FACT_DEVIATION;
-
-            v_rows_inserted := SQLROWCOUNT();
-
-            COMMIT;
-
-            v_status := 'SUCCESS';
-            v_error_message := NULL;
-            EXIT;
-
-        EXCEPTION
-            WHEN OTHER THEN
-                v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
-                ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
-        END;
-    END WHILE;
-
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
-    END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_FACT_DEVIATION completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_FACT_DEVIATION - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
-END;
-$$;
-```
-
-```sql
--- ============================================================
--- Procedure: MIGRATE_FACT_YIELD_ANALYTICS
--- Target table: ANALYTICAL.FACT_YIELD_ANALYTICS
--- Source canonical entity: CANONICAL.FACT_YIELD_ANALYTICS
--- Notes: DateKey is derived from ANALYSIS_DATE as YYYYMMDD integer.
--- ============================================================
-CREATE OR REPLACE PROCEDURE MIGRATE_FACT_YIELD_ANALYTICS()
-RETURNS STRING
-LANGUAGE SQL
-EXECUTE AS CALLER
-AS
-$$
-DECLARE
-    v_proc_name           STRING   := 'MIGRATE_FACT_YIELD_ANALYTICS';
-    v_target_table        STRING   := 'ANALYTICAL.FACT_YIELD_ANALYTICS';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
-BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
-
-    WHILE (v_attempt < v_max_attempts) DO
-        v_attempt := v_attempt + 1;
-        BEGIN
-            BEGIN TRANSACTION;
-
-            TRUNCATE TABLE ANALYTICAL.FACT_YIELD_ANALYTICS;
-
-            INSERT INTO ANALYTICAL.FACT_YIELD_ANALYTICS
-            (
-                YieldAnalyticsKey,
-                DateKey,
-                AnalysisDate,
-                FacilityKey,
-                ProductKey,
-                AggregationLevel,
-                BatchesStarted,
-                BatchesCompleted,
-                BatchesOnHold,
-                BatchesFailed,
-                AvgYieldPct,
-                MinYieldPct,
-                MaxYieldPct,
-                StdYieldPct,
-                YieldBelowTargetCount,
-                YieldTargetAttainmentPct,
-                TotalPlannedQty,
-                TotalActualQty,
-                QuantityUom,
-                AvgOeePct,
-                AvgAvailabilityPct,
-                AvgPerformancePct,
-                AvgQualityPct,
-                TotalDeviations,
-                HighCriticalDeviations,
-                CppComplianceRatePct,
-                SourceSystem,
-                SourceKey,
-                LoadedAtUTC,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
-            )
-            SELECT
-                YIELD_ANALYTICS_KEY        AS YieldAnalyticsKey,
-                TO_NUMBER(TO_CHAR(ANALYSIS_DATE, 'YYYYMMDD')) AS DateKey,
-                ANALYSIS_DATE              AS AnalysisDate,
-                FACILITY_KEY               AS FacilityKey,
-                PRODUCT_KEY                AS ProductKey,
-                AGGREGATION_LEVEL          AS AggregationLevel,
-                BATCHES_STARTED            AS BatchesStarted,
-                BATCHES_COMPLETED          AS BatchesCompleted,
-                BATCHES_ON_HOLD            AS BatchesOnHold,
-                BATCHES_FAILED             AS BatchesFailed,
-                AVG_YIELD_PCT              AS AvgYieldPct,
-                MIN_YIELD_PCT              AS MinYieldPct,
-                MAX_YIELD_PCT              AS MaxYieldPct,
-                STD_YIELD_PCT              AS StdYieldPct,
-                YIELD_BELOW_TARGET_COUNT   AS YieldBelowTargetCount,
-                YIELD_TARGET_ATTAINMENT_PCT AS YieldTargetAttainmentPct,
-                TOTAL_PLANNED_QTY          AS TotalPlannedQty,
-                TOTAL_ACTUAL_QTY           AS TotalActualQty,
-                QUANTITY_UOM               AS QuantityUom,
-                AVG_OEE_PCT                AS AvgOeePct,
-                AVG_AVAILABILITY_PCT       AS AvgAvailabilityPct,
-                AVG_PERFORMANCE_PCT        AS AvgPerformancePct,
-                AVG_QUALITY_PCT            AS AvgQualityPct,
-                TOTAL_DEVIATIONS           AS TotalDeviations,
-                HIGH_CRITICAL_DEVIATIONS   AS HighCriticalDeviations,
-                CPP_COMPLIANCE_RATE_PCT    AS CppComplianceRatePct,
-                _SOURCE_SYSTEM             AS SourceSystem,
-                _SOURCE_KEY                AS SourceKey,
-                _LOADED_AT_UTC             AS LoadedAtUTC,
-                CREATED_AT                 AS CreatedAt,
-                CREATED_BY                 AS CreatedBy,
-                UPDATED_AT                 AS UpdatedAt,
-                UPDATED_BY                 AS UpdatedBy,
-                IS_DELETED                 AS IsDeleted,
-                DELETED_AT                 AS DeletedAt
-            FROM CANONICAL.FACT_YIELD_ANALYTICS;
-
-            v_rows_inserted := SQLROWCOUNT();
-
-            COMMIT;
-
-            v_status := 'SUCCESS';
-            v_error_message := NULL;
-            EXIT;
-
-        EXCEPTION
-            WHEN OTHER THEN
-                v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
-                ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
-        END;
-    END WHILE;
-
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
-    END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_FACT_YIELD_ANALYTICS completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_FACT_YIELD_ANALYTICS - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
-END;
-$$;
-```
-
-```sql
--- ============================================================
--- Procedure: MIGRATE_FACT_SHIFT_LOG
--- Target table: ANALYTICAL.FACT_SHIFT_LOG
--- Source canonical entity: CANONICAL.FACT_SHIFT_LOG
--- Notes: DateKey is derived from LOG_DATE as YYYYMMDD integer.
--- ============================================================
-CREATE OR REPLACE PROCEDURE MIGRATE_FACT_SHIFT_LOG()
-RETURNS STRING
-LANGUAGE SQL
-EXECUTE AS CALLER
-AS
-$$
-DECLARE
-    v_proc_name           STRING   := 'MIGRATE_FACT_SHIFT_LOG';
-    v_target_table        STRING   := 'ANALYTICAL.FACT_SHIFT_LOG';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
-BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
-
-    WHILE (v_attempt < v_max_attempts) DO
-        v_attempt := v_attempt + 1;
-        BEGIN
-            BEGIN TRANSACTION;
-
-            TRUNCATE TABLE ANALYTICAL.FACT_SHIFT_LOG;
-
-            INSERT INTO ANALYTICAL.FACT_SHIFT_LOG
-            (
-                ShiftLogKey,
-                FacilityKey,
-                DateKey,
-                LogDate,
-                ShiftName,
-                ShiftStartUTC,
-                ShiftEndUTC,
-                SupervisorKey,
-                ActiveBatches,
-                CompletedBatches,
-                NewDeviations,
-                ClosedDeviations,
-                EquipmentDowntimeMins,
-                EquipmentIssuesCount,
-                SignedOff,
-                SignedOffUTC,
-                ShiftNotes,
-                SourceLogIdMartA,
-                SourceSystem,
-                SourceKey,
-                LoadedAtUTC,
-                CreatedAt,
-                CreatedBy,
-                UpdatedAt,
-                UpdatedBy,
-                IsDeleted,
-                DeletedAt
-            )
-            SELECT
-                SHIFT_LOG_KEY              AS ShiftLogKey,
-                FACILITY_KEY               AS FacilityKey,
-                TO_NUMBER(TO_CHAR(LOG_DATE, 'YYYYMMDD')) AS DateKey,
-                LOG_DATE                   AS LogDate,
-                SHIFT_NAME                 AS ShiftName,
-                SHIFT_START_UTC            AS ShiftStartUTC,
-                SHIFT_END_UTC              AS ShiftEndUTC,
-                SUPERVISOR_KEY             AS SupervisorKey,
-                ACTIVE_BATCHES             AS ActiveBatches,
-                COMPLETED_BATCHES          AS CompletedBatches,
-                NEW_DEVIATIONS             AS NewDeviations,
-                CLOSED_DEVIATIONS          AS ClosedDeviations,
-                EQUIPMENT_DOWNTIME_MINS    AS EquipmentDowntimeMins,
-                EQUIPMENT_ISSUES_COUNT     AS EquipmentIssuesCount,
-                SIGNED_OFF                 AS SignedOff,
-                SIGNED_OFF_UTC             AS SignedOffUTC,
-                SHIFT_NOTES                AS ShiftNotes,
-                SOURCE_LOG_ID_MART_A       AS SourceLogIdMartA,
-                _SOURCE_SYSTEM             AS SourceSystem,
-                _SOURCE_KEY                AS SourceKey,
-                _LOADED_AT_UTC             AS LoadedAtUTC,
-                CREATED_AT                 AS CreatedAt,
-                CREATED_BY                 AS CreatedBy,
-                UPDATED_AT                 AS UpdatedAt,
-                UPDATED_BY                 AS UpdatedBy,
-                IS_DELETED                 AS IsDeleted,
-                DELETED_AT                 AS DeletedAt
-            FROM CANONICAL.FACT_SHIFT_LOG;
-
-            v_rows_inserted := SQLROWCOUNT();
-
-            COMMIT;
-
-            v_status := 'SUCCESS';
-            v_error_message := NULL;
-            EXIT;
-
-        EXCEPTION
-            WHEN OTHER THEN
-                v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
-                ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
-        END;
-    END WHILE;
-
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
-    END IF;
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
-
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_FACT_SHIFT_LOG completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_FACT_SHIFT_LOG - ' || COALESCE(v_error_message, 'Unknown error');
-    END IF;
-
-END;
-$$;
-```
+---
 
 ```sql
 -- ============================================================
 -- Procedure: MIGRATE_DIM_DATE
--- Target table: ANALYTICAL.DIM_DATE
--- Source: Derived calendar (no direct canonical entity)
--- Notes: Generates a date dimension for a configurable range.
---        This procedure assumes parameters for start/end dates
---        are configured inside the procedure for simplicity.
+-- Target table: DIM_DATE (ANALYTICAL schema)
+-- Source canonical entities: FACT_YIELD_ANALYTICS, FACT_SHIFT_LOG, FACT_PRODUCTION_ORDER (CANONICAL schema)
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_DIM_DATE()
 RETURNS STRING
@@ -2497,28 +1502,18 @@ EXECUTE AS CALLER
 AS
 $$
 DECLARE
-    v_proc_name           STRING   := 'MIGRATE_DIM_DATE';
-    v_target_table        STRING   := 'ANALYTICAL.DIM_DATE';
-    v_start_ts            TIMESTAMP_TZ;
-    v_end_ts              TIMESTAMP_TZ;
-    v_rows_inserted       NUMBER   := 0;
-    v_rows_updated        NUMBER   := 0;
-    v_rows_rejected       NUMBER   := 0;
-    v_attempt             NUMBER   := 0;
-    v_max_attempts        NUMBER   := 3;
-    v_sleep_seconds       NUMBER   := 5;
-    v_status              STRING;
-    v_error_message       STRING;
-
-    v_date_start          DATE     := DATE '2020-01-01';
-    v_date_end            DATE     := DATE '2030-12-31';
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
 BEGIN
-    v_start_ts := CURRENT_TIMESTAMP();
-
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, STATUS)
-    VALUES
-    (v_proc_name, v_target_table, v_start_ts, 'STARTED');
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
 
     WHILE (v_attempt < v_max_attempts) DO
         v_attempt := v_attempt + 1;
@@ -2527,88 +1522,1097 @@ BEGIN
 
             TRUNCATE TABLE ANALYTICAL.DIM_DATE;
 
-            INSERT INTO ANALYTICAL.DIM_DATE
-            (
-                DateKey,
-                FullDate,
-                Day,
-                Month,
-                MonthName,
-                Quarter,
-                Year,
-                WeekNumber,
-                DayOfWeek,
-                DayName,
-                IsWeekend,
-                IsHoliday,
-                FiscalYear,
-                FiscalQuarter
+            -- Build distinct calendar dates from multiple canonical sources
+            INSERT INTO ANALYTICAL.DIM_DATE (
+                DATEKEY,
+                FULLDATE,
+                DAY,
+                MONTH,
+                MONTHNAME,
+                QUARTER,
+                YEAR,
+                WEEKNUMBER,
+                DAYOFWEEK,
+                DAYNAME,
+                ISWEEKEND,
+                ISHOLIDAY,
+                FISCALYEAR,
+                FISCALQUARTER
+            )
+            WITH ALL_DATES AS (
+                SELECT DISTINCT ANALYSIS_DATE AS FULL_DATE
+                FROM CANONICAL.FACT_YIELD_ANALYTICS
+                WHERE ANALYSIS_DATE IS NOT NULL
+                UNION
+                SELECT DISTINCT LOG_DATE AS FULL_DATE
+                FROM CANONICAL.FACT_SHIFT_LOG
+                WHERE LOG_DATE IS NOT NULL
+                UNION
+                SELECT DISTINCT CAST(PLANNED_START_UTC AS DATE) AS FULL_DATE
+                FROM CANONICAL.FACT_PRODUCTION_ORDER
+                WHERE PLANNED_START_UTC IS NOT NULL
+            ),
+            BASE_DATES AS (
+                SELECT DISTINCT FULL_DATE
+                FROM ALL_DATES
             )
             SELECT
-                TO_NUMBER(TO_CHAR(d, 'YYYYMMDD'))                           AS DateKey,
-                d                                                           AS FullDate,
-                EXTRACT(DAY    FROM d)                                      AS Day,
-                EXTRACT(MONTH  FROM d)                                      AS Month,
-                TO_CHAR(d, 'Month')                                         AS MonthName,
-                EXTRACT(QUARTER FROM d)                                     AS Quarter,
-                EXTRACT(YEAR   FROM d)                                      AS Year,
-                TO_NUMBER(TO_CHAR(d, 'IW'))                                 AS WeekNumber,
-                EXTRACT(DAYOFWEEK FROM d)                                   AS DayOfWeek,
-                TO_CHAR(d, 'DY')                                            AS DayName,
-                CASE WHEN EXTRACT(DAYOFWEEK FROM d) IN (6,7) THEN TRUE ELSE FALSE END AS IsWeekend,
-                FALSE                                                       AS IsHoliday,
-                EXTRACT(YEAR FROM d)                                        AS FiscalYear,
-                EXTRACT(QUARTER FROM d)                                     AS FiscalQuarter
-            FROM TABLE(GENERATOR(ROWCOUNT => DATEDIFF('day', v_date_start, v_date_end) + 1)) g
-            CROSS JOIN LATERAL (
-                SELECT v_date_start + g.SEQ4() AS d
-            );
+                CAST(TO_CHAR(FULL_DATE, 'YYYYMMDD') AS INTEGER) AS DATEKEY,
+                FULL_DATE AS FULLDATE,
+                EXTRACT(DAY FROM FULL_DATE) AS DAY,
+                EXTRACT(MONTH FROM FULL_DATE) AS MONTH,
+                TO_CHAR(FULL_DATE, 'Mon') AS MONTHNAME,
+                EXTRACT(QUARTER FROM FULL_DATE) AS QUARTER,
+                EXTRACT(YEAR FROM FULL_DATE) AS YEAR,
+                TO_NUMBER(TO_CHAR(FULL_DATE, 'IW')) AS WEEKNUMBER,
+                EXTRACT(DOW FROM FULL_DATE) AS DAYOFWEEK,
+                TO_CHAR(FULL_DATE, 'Dy') AS DAYNAME,
+                CASE WHEN EXTRACT(DOW FROM FULL_DATE) IN (6, 7) THEN TRUE ELSE FALSE END AS ISWEEKEND,
+                -- Holiday flag derived from external reference table HOLIDAY_CALENDAR
+                CASE WHEN EXISTS (
+                    SELECT 1
+                    FROM REFERENCE.HOLIDAY_CALENDAR H
+                    WHERE H.HOLIDAY_DATE = FULL_DATE
+                ) THEN TRUE ELSE FALSE END AS ISHOLIDAY,
+                -- Fiscal attributes; replace logic with enterprise fiscal calendar rules
+                EXTRACT(YEAR FROM FULL_DATE) AS FISCALYEAR,
+                EXTRACT(QUARTER FROM FULL_DATE) AS FISCALQUARTER
+            FROM BASE_DATES;
 
-            v_rows_inserted := SQLROWCOUNT();
+            v_rows_inserted := SQLROWCOUNT;
 
             COMMIT;
 
             v_status := 'SUCCESS';
             v_error_message := NULL;
-            EXIT;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_DIM_DATE', 'DIM_DATE',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_DIM_DATE completed';
 
         EXCEPTION
             WHEN OTHER THEN
                 v_error_message := SQLERRM;
-                v_status := 'RETRY_' || v_attempt || '_FAILED';
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
                 ROLLBACK;
-                CALL SYSTEM$SLEEP(v_sleep_seconds);
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_DIM_DATE', 'DIM_DATE',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
         END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
     END WHILE;
 
-    v_end_ts := CURRENT_TIMESTAMP();
-
-    IF v_status != 'SUCCESS' THEN
-        v_status := 'FAILED';
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_DIM_DATE - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
     END IF;
+END;
+$$;
+```
 
-    INSERT INTO ANALYTICAL.AUDIT_LOG
-    (PROC_NAME, TARGET_TABLE, LOAD_START_TS, LOAD_END_TS,
-     ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, STATUS, ERROR_MESSAGE)
-    VALUES
-    (
-        v_proc_name,
-        v_target_table,
-        v_start_ts,
-        v_end_ts,
-        v_rows_inserted,
-        v_rows_updated,
-        v_rows_rejected,
-        v_status,
-        v_error_message
-    );
+---
 
-    IF v_status = 'SUCCESS' THEN
-        RETURN 'SUCCESS: MIGRATE_DIM_DATE completed. Rows inserted=' || v_rows_inserted;
-    ELSE
-        RETURN 'FAILURE: MIGRATE_DIM_DATE - ' || COALESCE(v_error_message, 'Unknown error');
+```sql
+-- ============================================================
+-- Procedure: MIGRATE_FACT_PRODUCTION_ORDER
+-- Target table: FACT_PRODUCTION_ORDER (ANALYTICAL schema)
+-- Source canonical entity: FACT_PRODUCTION_ORDER (CANONICAL schema)
+-- ============================================================
+CREATE OR REPLACE PROCEDURE MIGRATE_FACT_PRODUCTION_ORDER()
+RETURNS STRING
+LANGUAGE SQL
+EXECUTE AS CALLER
+AS
+$$
+DECLARE
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
+BEGIN
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
+
+    WHILE (v_attempt < v_max_attempts) DO
+        v_attempt := v_attempt + 1;
+        BEGIN
+            BEGIN TRANSACTION;
+
+            TRUNCATE TABLE ANALYTICAL.FACT_PRODUCTION_ORDER;
+
+            INSERT INTO ANALYTICAL.FACT_PRODUCTION_ORDER (
+                PRODUCTIONORDERKEY,
+                CANONICALBATCHID,
+                ERPORDERNUMBER,
+                MESBATCHREFERENCE,
+                GMPLOTNUMBER,
+                FACILITYKEY,
+                PRODUCTKEY,
+                PRIMARYEQUIPMENTKEY,
+                DISPOSITIONKEY,
+                PLANNEDSTARTUTC,
+                PLANNEDENDUTC,
+                PLANNEDQUANTITY,
+                QUANTITYUOM,
+                ACTUALSTARTUTC,
+                ACTUALENDUTC,
+                ACTUALQUANTITY,
+                YIELDPCT,
+                YIELDVARIANCEPCT,
+                OEEAVAILABILITYPCT,
+                OEEPERFORMANCEPCT,
+                OEEQUALITYPCT,
+                OEEOVERALLPCT,
+                BATCHSTATUS,
+                DEVIATIONCOUNT,
+                ISGOLDENBATCH,
+                GOLDENBATCHREFERENCE,
+                SHIFTATSTART,
+                SHIFTSUPERVISORKEY,
+                SOURCEBATCHIDMARTA,
+                SOURCEBATCHIDOPS,
+                SOURCEORDERNUMOPS,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                LOADEDATUTC,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
+            )
+            SELECT
+                DEFAULT,
+                CANONICAL_BATCH_ID,
+                ERP_ORDER_NUMBER,
+                MES_BATCH_REFERENCE,
+                GMP_LOT_NUMBER,
+                CAST(FACILITY_KEY AS INTEGER),
+                CAST(PRODUCT_KEY AS INTEGER),
+                CAST(PRIMARY_EQUIPMENT_KEY AS INTEGER),
+                CAST(DISPOSITION_KEY AS INTEGER),
+                PLANNED_START_UTC,
+                PLANNED_END_UTC,
+                PLANNED_QUANTITY,
+                QUANTITY_UOM,
+                ACTUAL_START_UTC,
+                ACTUAL_END_UTC,
+                ACTUAL_QUANTITY,
+                YIELD_PCT,
+                YIELD_VARIANCE_PCT,
+                OEE_AVAILABILITY_PCT,
+                OEE_PERFORMANCE_PCT,
+                OEE_QUALITY_PCT,
+                OEE_OVERALL_PCT,
+                BATCH_STATUS,
+                DEVIATION_COUNT,
+                IS_GOLDEN_BATCH,
+                GOLDEN_BATCH_REFERENCE,
+                SHIFT_AT_START,
+                CAST(SHIFT_SUPERVISOR_KEY AS INTEGER),
+                SOURCE_BATCH_ID_MART_A,
+                SOURCE_BATCH_ID_OPS,
+                SOURCE_ORDER_NUM_OPS,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                _LOADED_AT_UTC,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.FACT_PRODUCTION_ORDER
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
+
+            v_rows_inserted := SQLROWCOUNT;
+
+            COMMIT;
+
+            v_status := 'SUCCESS';
+            v_error_message := NULL;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_FACT_PRODUCTION_ORDER', 'FACT_PRODUCTION_ORDER',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_FACT_PRODUCTION_ORDER completed';
+
+        EXCEPTION
+            WHEN OTHER THEN
+                v_error_message := SQLERRM;
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
+                ROLLBACK;
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_FACT_PRODUCTION_ORDER', 'FACT_PRODUCTION_ORDER',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
+        END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
+    END WHILE;
+
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_FACT_PRODUCTION_ORDER - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
     END IF;
+END;
+$$;
+```
 
+---
+
+```sql
+-- ============================================================
+-- Procedure: MIGRATE_FACT_BATCH_STEP
+-- Target table: FACT_BATCH_STEP (ANALYTICAL schema)
+-- Source canonical entity: FACT_BATCH_STEP (CANONICAL schema)
+-- ============================================================
+CREATE OR REPLACE PROCEDURE MIGRATE_FACT_BATCH_STEP()
+RETURNS STRING
+LANGUAGE SQL
+EXECUTE AS CALLER
+AS
+$$
+DECLARE
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
+BEGIN
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
+
+    WHILE (v_attempt < v_max_attempts) DO
+        v_attempt := v_attempt + 1;
+        BEGIN
+            BEGIN TRANSACTION;
+
+            TRUNCATE TABLE ANALYTICAL.FACT_BATCH_STEP;
+
+            INSERT INTO ANALYTICAL.FACT_BATCH_STEP (
+                BATCHSTEPKEY,
+                PRODUCTIONORDERKEY,
+                CANONICALBATCHID,
+                PROCESSSTEPKEY,
+                EQUIPMENTKEY,
+                STEPSEQUENCE,
+                STEPSTARTUTC,
+                STEPENDUTC,
+                STEPDURATIONHRS,
+                INPUTQUANTITY,
+                OUTPUTQUANTITY,
+                QUANTITYUOM,
+                STEPYIELDPCT,
+                STEPSTATUS,
+                OPERATORKEY,
+                VERIFIERKEY,
+                ESIGNATURETIMESTAMPUTC,
+                ESIGNATUREMEANING,
+                HASDEVIATION,
+                DEVIATIONCOUNT,
+                STEPNOTES,
+                SOURCERUNIDMARTA,
+                SOURCESTEPIDOPS,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                LOADEDATUTC,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
+            )
+            SELECT
+                DEFAULT,
+                CAST(PRODUCTION_ORDER_KEY AS INTEGER),
+                CANONICAL_BATCH_ID,
+                CAST(PROCESS_STEP_KEY AS INTEGER),
+                CAST(EQUIPMENT_KEY AS INTEGER),
+                STEP_SEQUENCE,
+                STEP_START_UTC,
+                STEP_END_UTC,
+                STEP_DURATION_HRS,
+                INPUT_QUANTITY,
+                OUTPUT_QUANTITY,
+                QUANTITY_UOM,
+                STEP_YIELD_PCT,
+                STEP_STATUS,
+                CAST(OPERATOR_KEY AS INTEGER),
+                CAST(VERIFIER_KEY AS INTEGER),
+                ESIGNATURE_TIMESTAMP_UTC,
+                ESIGNATURE_MEANING,
+                HAS_DEVIATION,
+                DEVIATION_COUNT,
+                STEP_NOTES,
+                SOURCE_RUN_ID_MART_A,
+                SOURCE_STEP_ID_OPS,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                _LOADED_AT_UTC,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.FACT_BATCH_STEP
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
+
+            v_rows_inserted := SQLROWCOUNT;
+
+            COMMIT;
+
+            v_status := 'SUCCESS';
+            v_error_message := NULL;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_FACT_BATCH_STEP', 'FACT_BATCH_STEP',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_FACT_BATCH_STEP completed';
+
+        EXCEPTION
+            WHEN OTHER THEN
+                v_error_message := SQLERRM;
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
+                ROLLBACK;
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_FACT_BATCH_STEP', 'FACT_BATCH_STEP',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
+        END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
+    END WHILE;
+
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_FACT_BATCH_STEP - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
+    END IF;
+END;
+$$;
+```
+
+---
+
+```sql
+-- ============================================================
+-- Procedure: MIGRATE_FACT_EQUIPMENT_TELEMETRY
+-- Target table: FACT_EQUIPMENT_TELEMETRY (ANALYTICAL schema)
+-- Source canonical entity: FACT_EQUIPMENT_TELEMETRY (CANONICAL schema)
+-- ============================================================
+CREATE OR REPLACE PROCEDURE MIGRATE_FACT_EQUIPMENT_TELEMETRY()
+RETURNS STRING
+LANGUAGE SQL
+EXECUTE AS CALLER
+AS
+$$
+DECLARE
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
+BEGIN
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
+
+    WHILE (v_attempt < v_max_attempts) DO
+        v_attempt := v_attempt + 1;
+        BEGIN
+            BEGIN TRANSACTION;
+
+            TRUNCATE TABLE ANALYTICAL.FACT_EQUIPMENT_TELEMETRY;
+
+            INSERT INTO ANALYTICAL.FACT_EQUIPMENT_TELEMETRY (
+                TELEMETRYKEY,
+                EQUIPMENTKEY,
+                BATCHSTEPKEY,
+                PRODUCTIONORDERKEY,
+                CANONICALBATCHID,
+                PARAMETERKEY,
+                READINGTIMESTAMPUTC,
+                CANONICALVALUE,
+                CANONICALUOM,
+                SOURCEVALUE,
+                SOURCEUOM,
+                CONVERSIONAPPLIED,
+                TARGETVALUE,
+                LOWERSPECLIMIT,
+                UPPERSPECLIMIT,
+                LOWERALERTLIMIT,
+                UPPERALERTLIMIT,
+                WITHINSPECIFICATION,
+                WITHINALERT,
+                DEVIATIONFROMTARGET,
+                GOLDENBATCHVALUE,
+                GOLDENBATCHDEVIATION,
+                AGGREGATIONTYPE,
+                SOURCESYSTEMTYPE,
+                SOURCEREADINGIDMARTA,
+                SOURCEREADINGIDOPS,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                LOADEDATUTC,
+                CREATEDAT,
+                CREATEDBY,
+                ISDELETED,
+                DELETEDAT
+            )
+            SELECT
+                DEFAULT,
+                CAST(EQUIPMENT_KEY AS INTEGER),
+                CAST(BATCH_STEP_KEY AS INTEGER),
+                CAST(PRODUCTION_ORDER_KEY AS INTEGER),
+                CANONICAL_BATCH_ID,
+                CAST(PARAMETER_KEY AS INTEGER),
+                READING_TIMESTAMP_UTC,
+                CANONICAL_VALUE,
+                CANONICAL_UOM,
+                SOURCE_VALUE,
+                SOURCE_UOM,
+                CONVERSION_APPLIED,
+                TARGET_VALUE,
+                LOWER_SPEC_LIMIT,
+                UPPER_SPEC_LIMIT,
+                LOWER_ALERT_LIMIT,
+                UPPER_ALERT_LIMIT,
+                WITHIN_SPECIFICATION,
+                WITHIN_ALERT,
+                DEVIATION_FROM_TARGET,
+                GOLDEN_BATCH_VALUE,
+                GOLDEN_BATCH_DEVIATION,
+                AGGREGATION_TYPE,
+                SOURCE_SYSTEM_TYPE,
+                SOURCE_READING_ID_MART_A,
+                SOURCE_READING_ID_OPS,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                _LOADED_AT_UTC,
+                CREATED_AT,
+                CREATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.FACT_EQUIPMENT_TELEMETRY
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
+
+            v_rows_inserted := SQLROWCOUNT;
+
+            COMMIT;
+
+            v_status := 'SUCCESS';
+            v_error_message := NULL;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_FACT_EQUIPMENT_TELEMETRY', 'FACT_EQUIPMENT_TELEMETRY',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_FACT_EQUIPMENT_TELEMETRY completed';
+
+        EXCEPTION
+            WHEN OTHER THEN
+                v_error_message := SQLERRM;
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
+                ROLLBACK;
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_FACT_EQUIPMENT_TELEMETRY', 'FACT_EQUIPMENT_TELEMETRY',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
+        END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
+    END WHILE;
+
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_FACT_EQUIPMENT_TELEMETRY - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
+    END IF;
+END;
+$$;
+```
+
+---
+
+```sql
+-- ============================================================
+-- Procedure: MIGRATE_FACT_DEVIATION
+-- Target table: FACT_DEVIATION (ANALYTICAL schema)
+-- Source canonical entity: FACT_DEVIATION (CANONICAL schema)
+-- ============================================================
+CREATE OR REPLACE PROCEDURE MIGRATE_FACT_DEVIATION()
+RETURNS STRING
+LANGUAGE SQL
+EXECUTE AS CALLER
+AS
+$$
+DECLARE
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
+BEGIN
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
+
+    WHILE (v_attempt < v_max_attempts) DO
+        v_attempt := v_attempt + 1;
+        BEGIN
+            BEGIN TRANSACTION;
+
+            TRUNCATE TABLE ANALYTICAL.FACT_DEVIATION;
+
+            INSERT INTO ANALYTICAL.FACT_DEVIATION (
+                DEVIATIONKEY,
+                CANONICALDEVIATIONID,
+                PRODUCTIONORDERKEY,
+                BATCHSTEPKEY,
+                TELEMETRYKEY,
+                EQUIPMENTKEY,
+                PARAMETERKEY,
+                DEVIATIONCATEGORYKEY,
+                FACILITYKEY,
+                CANONICALBATCHID,
+                DETECTEDTIMESTAMPUTC,
+                DETECTEDBYKEY,
+                DETECTIONMETHOD,
+                SEVERITYCODE,
+                POTENTIALIMPACT,
+                DEVIATIONDESCRIPTION,
+                INVESTIGATIONSTATUS,
+                ASSIGNEDTOKEY,
+                INVESTIGATIONSTARTUTC,
+                INVESTIGATIONENDUTC,
+                ROOTCAUSECODE,
+                ROOTCAUSEDESCRIPTION,
+                CAPAREQUIRED,
+                CAPAREFERENCEID,
+                CAPADUEDATE,
+                CAPACLOSEDDATE,
+                CLOSEDTIMESTAMPUTC,
+                CLOSEDBYKEY,
+                RESOLUTIONSUMMARY,
+                REGULATORYNOTIFICATIONREQUIRED,
+                REGULATORYNOTIFIEDDATE,
+                SOURCEDEVIDMARTA,
+                SOURCEDEVNUMOPS,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                LOADEDATUTC,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
+            )
+            SELECT
+                DEFAULT,
+                CANONICAL_DEVIATION_ID,
+                CAST(PRODUCTION_ORDER_KEY AS INTEGER),
+                CAST(BATCH_STEP_KEY AS INTEGER),
+                CAST(TELEMETRY_KEY AS INTEGER),
+                CAST(EQUIPMENT_KEY AS INTEGER),
+                CAST(PARAMETER_KEY AS INTEGER),
+                CAST(DEVIATION_CATEGORY_KEY AS INTEGER),
+                CAST(FACILITY_KEY AS INTEGER),
+                CANONICAL_BATCH_ID,
+                DETECTED_TIMESTAMP_UTC,
+                CAST(DETECTED_BY_KEY AS INTEGER),
+                DETECTION_METHOD,
+                SEVERITY_CODE,
+                POTENTIAL_IMPACT,
+                DEVIATION_DESCRIPTION,
+                INVESTIGATION_STATUS,
+                CAST(ASSIGNED_TO_KEY AS INTEGER),
+                INVESTIGATION_START_UTC,
+                INVESTIGATION_END_UTC,
+                ROOT_CAUSE_CODE,
+                ROOT_CAUSE_DESCRIPTION,
+                CAPA_REQUIRED,
+                CAPA_REFERENCE_ID,
+                CAPA_DUE_DATE,
+                CAPA_CLOSED_DATE,
+                CLOSED_TIMESTAMP_UTC,
+                CAST(CLOSED_BY_KEY AS INTEGER),
+                RESOLUTION_SUMMARY,
+                REGULATORY_NOTIFICATION_REQUIRED,
+                REGULATORY_NOTIFIED_DATE,
+                SOURCE_DEV_ID_MART_A,
+                SOURCE_DEV_NUM_OPS,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                _LOADED_AT_UTC,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.FACT_DEVIATION
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
+
+            v_rows_inserted := SQLROWCOUNT;
+
+            COMMIT;
+
+            v_status := 'SUCCESS';
+            v_error_message := NULL;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_FACT_DEVIATION', 'FACT_DEVIATION',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_FACT_DEVIATION completed';
+
+        EXCEPTION
+            WHEN OTHER THEN
+                v_error_message := SQLERRM;
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
+                ROLLBACK;
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_FACT_DEVIATION', 'FACT_DEVIATION',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
+        END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
+    END WHILE;
+
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_FACT_DEVIATION - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
+    END IF;
+END;
+$$;
+```
+
+---
+
+```sql
+-- ============================================================
+-- Procedure: MIGRATE_FACT_YIELD_ANALYTICS
+-- Target table: FACT_YIELD_ANALYTICS (ANALYTICAL schema)
+-- Source canonical entity: FACT_YIELD_ANALYTICS (CANONICAL schema)
+-- ============================================================
+CREATE OR REPLACE PROCEDURE MIGRATE_FACT_YIELD_ANALYTICS()
+RETURNS STRING
+LANGUAGE SQL
+EXECUTE AS CALLER
+AS
+$$
+DECLARE
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
+BEGIN
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
+
+    WHILE (v_attempt < v_max_attempts) DO
+        v_attempt := v_attempt + 1;
+        BEGIN
+            BEGIN TRANSACTION;
+
+            TRUNCATE TABLE ANALYTICAL.FACT_YIELD_ANALYTICS;
+
+            INSERT INTO ANALYTICAL.FACT_YIELD_ANALYTICS (
+                YIELDANALYTICSKEY,
+                ANALYSISDATE,
+                FACILITYKEY,
+                PRODUCTKEY,
+                AGGREGATIONLEVEL,
+                BATCHESSTARTED,
+                BATCHESCOMPLETED,
+                BATCHESONHOLD,
+                BATCHESFAILED,
+                AVGYIELDPCT,
+                MINYIELDPCT,
+                MAXYIELDPCT,
+                STDYIELDPCT,
+                YIELDBELOWTARGETCOUNT,
+                YIELDTARGETATTAINMENTPCT,
+                TOTALPLANNEDQTY,
+                TOTALACTUALQTY,
+                QUANTITYUOM,
+                AVGOEEPCT,
+                AVGAVAILABILITYPCT,
+                AVGPERFORMANCEPCT,
+                AVGQUALITYPCT,
+                TOTALDEVIATIONS,
+                HIGHCRITICALDEVIATIONS,
+                CPPCOMPLIANCERATEPCT,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                LOADEDATUTC,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
+            )
+            SELECT
+                DEFAULT,
+                ANALYSIS_DATE,
+                CAST(FACILITY_KEY AS INTEGER),
+                CAST(PRODUCT_KEY AS INTEGER),
+                AGGREGATION_LEVEL,
+                BATCHES_STARTED,
+                BATCHES_COMPLETED,
+                BATCHES_ON_HOLD,
+                BATCHES_FAILED,
+                AVG_YIELD_PCT,
+                MIN_YIELD_PCT,
+                MAX_YIELD_PCT,
+                STD_YIELD_PCT,
+                YIELD_BELOW_TARGET_COUNT,
+                YIELD_TARGET_ATTAINMENT_PCT,
+                TOTAL_PLANNED_QTY,
+                TOTAL_ACTUAL_QTY,
+                QUANTITY_UOM,
+                AVG_OEE_PCT,
+                AVG_AVAILABILITY_PCT,
+                AVG_PERFORMANCE_PCT,
+                AVG_QUALITY_PCT,
+                TOTAL_DEVIATIONS,
+                HIGH_CRITICAL_DEVIATIONS,
+                CPP_COMPLIANCE_RATE_PCT,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                _LOADED_AT_UTC,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.FACT_YIELD_ANALYTICS
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
+
+            v_rows_inserted := SQLROWCOUNT;
+
+            COMMIT;
+
+            v_status := 'SUCCESS';
+            v_error_message := NULL;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_FACT_YIELD_ANALYTICS', 'FACT_YIELD_ANALYTICS',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_FACT_YIELD_ANALYTICS completed';
+
+        EXCEPTION
+            WHEN OTHER THEN
+                v_error_message := SQLERRM;
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
+                ROLLBACK;
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_FACT_YIELD_ANALYTICS', 'FACT_YIELD_ANALYTICS',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
+        END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
+    END WHILE;
+
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_FACT_YIELD_ANALYTICS - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
+    END IF;
+END;
+$$;
+```
+
+---
+
+```sql
+-- ============================================================
+-- Procedure: MIGRATE_FACT_SHIFT_LOG
+-- Target table: FACT_SHIFT_LOG (ANALYTICAL schema)
+-- Source canonical entity: FACT_SHIFT_LOG (CANONICAL schema)
+-- ============================================================
+CREATE OR REPLACE PROCEDURE MIGRATE_FACT_SHIFT_LOG()
+RETURNS STRING
+LANGUAGE SQL
+EXECUTE AS CALLER
+AS
+$$
+DECLARE
+    v_attempt            INTEGER := 0;
+    v_max_attempts       INTEGER := 3;
+    v_rows_inserted      NUMBER := 0;
+    v_rows_updated       NUMBER := 0;
+    v_rows_rejected      NUMBER := 0;
+    v_start_time         TIMESTAMP_TZ;
+    v_end_time           TIMESTAMP_TZ;
+    v_error_message      STRING;
+    v_status             STRING;
+BEGIN
+    v_start_time := CURRENT_TIMESTAMP();
+    v_status := 'IN_PROGRESS';
+
+    WHILE (v_attempt < v_max_attempts) DO
+        v_attempt := v_attempt + 1;
+        BEGIN
+            BEGIN TRANSACTION;
+
+            TRUNCATE TABLE ANALYTICAL.FACT_SHIFT_LOG;
+
+            INSERT INTO ANALYTICAL.FACT_SHIFT_LOG (
+                SHIFTLOGKEY,
+                FACILITYKEY,
+                LOGDATE,
+                SHIFTNAME,
+                SHIFTSTARTUTC,
+                SHIFTENDUTC,
+                SUPERVISORKEY,
+                ACTIVEBATCHES,
+                COMPLETEDBATCHES,
+                NEWDEVIATIONS,
+                CLOSEDDEVIATIONS,
+                EQUIPMENTDOWNTIMEMINS,
+                EQUIPMENTISSUESCOUNT,
+                SIGNEDOFF,
+                SIGNEDOFFUTC,
+                SHIFTNOTES,
+                SOURCELOGIDMARTA,
+                SOURCESYSTEM,
+                SOURCEKEY,
+                LOADEDATUTC,
+                CREATEDAT,
+                CREATEDBY,
+                UPDATEDAT,
+                UPDATEDBY,
+                ISDELETED,
+                DELETEDAT
+            )
+            SELECT
+                DEFAULT,
+                CAST(FACILITY_KEY AS INTEGER),
+                LOG_DATE,
+                SHIFT_NAME,
+                SHIFT_START_UTC,
+                SHIFT_END_UTC,
+                CAST(SUPERVISOR_KEY AS INTEGER),
+                ACTIVE_BATCHES,
+                COMPLETED_BATCHES,
+                NEW_DEVIATIONS,
+                CLOSED_DEVIATIONS,
+                EQUIPMENT_DOWNTIME_MINS,
+                EQUIPMENT_ISSUES_COUNT,
+                SIGNED_OFF,
+                SIGNED_OFF_UTC,
+                SHIFT_NOTES,
+                SOURCE_LOG_ID_MART_A,
+                _SOURCE_SYSTEM,
+                _SOURCE_KEY,
+                _LOADED_AT_UTC,
+                CREATED_AT,
+                CREATED_BY,
+                UPDATED_AT,
+                UPDATED_BY,
+                IS_DELETED,
+                DELETED_AT
+            FROM CANONICAL.FACT_SHIFT_LOG
+            WHERE IS_DELETED = FALSE OR IS_DELETED IS NULL;
+
+            v_rows_inserted := SQLROWCOUNT;
+
+            COMMIT;
+
+            v_status := 'SUCCESS';
+            v_error_message := NULL;
+            v_end_time := CURRENT_TIMESTAMP();
+
+            INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+            )
+            VALUES (
+                'MIGRATE_FACT_SHIFT_LOG', 'FACT_SHIFT_LOG',
+                v_start_time, v_end_time,
+                v_status, v_error_message,
+                v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+            );
+
+            RETURN 'SUCCESS: MIGRATE_FACT_SHIFT_LOG completed';
+
+        EXCEPTION
+            WHEN OTHER THEN
+                v_error_message := SQLERRM;
+                v_status := 'FAILED_ATTEMPT_' || v_attempt;
+                ROLLBACK;
+                v_end_time := CURRENT_TIMESTAMP();
+
+                INSERT INTO ANALYTICAL_MIGRATION_AUDIT (
+                    PROC_NAME, TARGET_TABLE, START_TIME, END_TIME,
+                    STATUS, ERROR_MESSAGE, ROWS_INSERTED, ROWS_UPDATED, ROWS_REJECTED, ATTEMPT_NUMBER
+                )
+                VALUES (
+                    'MIGRATE_FACT_SHIFT_LOG', 'FACT_SHIFT_LOG',
+                    v_start_time, v_end_time,
+                    v_status, v_error_message,
+                    v_rows_inserted, v_rows_updated, v_rows_rejected, v_attempt
+                );
+
+                CALL SYSTEM$WAIT(5);
+        END;
+
+        IF (v_status = 'SUCCESS') THEN
+            EXIT;
+        END IF;
+    END WHILE;
+
+    IF (v_status <> 'SUCCESS') THEN
+        RETURN 'FAILURE: MIGRATE_FACT_SHIFT_LOG - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
+    END IF;
 END;
 $$;
 ```
