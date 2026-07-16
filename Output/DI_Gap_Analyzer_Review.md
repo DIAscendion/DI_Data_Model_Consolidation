@@ -1,68 +1,100 @@
-## Check 1.1 — Match Reasons Meaningfulness & Score Alignment Review
+## Check 1.1 — Match Reasons Meaningful and Aligned with Score
 
 ### Review Summary
 
 | Metric | Detail |
 |---|---|
-| Total Section 2 rows evaluated | 19 |
-| Meaningful reasons | 19 / 100% |
-| Aligned with score | 13 / 68.4% |
-| Rows passing both checks | 13 / 68.4% |
-| Rows with internal contradictions | 0 |
-| Overall Check 1.1 result | 10 rows require attention — see Gap Analysis below |
-
-**Score bands derived from Section 1 summary:**
-- High band: **≥80** ("Attributes mapped ≥80% match")
-- Mid band: **40–79** ("Attributes mapped 40–79% match")
-- Low/not mapped: **<40** (out of scope for Section 2)
-
----
+| Total Section 2 rows evaluated | 21 |
+| Meaningful reasons | 21 / 100% |
+| Aligned with score | 11 / 52.4% |
+| Rows passing both checks | 11 / 52.4% |
+| Rows with internal contradictions | 5 |
+| Overall Check 1.1 result | Fail |
 
 ### Gap Analysis Report
 
+**Score bands derived from Section 1 summary:**
+- High band: **≥80**
+- Mid band: **40–79**
+- Not mapped: **<40** (no rows in Section 2)
+
 | Row Ref (Source → Target) | Match Score | Issue Type | Description |
 |---|---:|---|---|
-| EnterpriseAnalytics.dim_facility.site_code → LexingtonSite.equipment.building | 62 | Alignment — strengthen evidence | Reason claims only broad glossary similarity and short codes in sample data; possible domain mismatch (site_code vs building). Provide glossary excerpts or sample value overlaps to confirm. |
-| EnterpriseAnalytics.dim_product.product_name → LexingtonSite.batch_run.step_name | 41 | Alignment — weak evidence | Reason cites glossary similarity and both being descriptive text, which does not establish semantic equivalence between product name and process step name. Reason should explicitly state inferential/speculative nature. |
-| EnterpriseAnalytics.dim_product.sku → LexingtonSite.batch_run.product_code | 80 | Alignment — score review needed | Reason explicitly states different concepts (supply chain code vs site-local code) and implies a crosswalk is needed. Mid-band score is more appropriate unless a validated reference table exists. |
-| EnterpriseAnalytics.dim_product.dosage_form → LexingtonSite.batch_run.step_name | 45 | Alignment — weak evidence | Reason relies on generic glossary similarity and descriptive text without concrete semantic evidence linking dosage form to step name. |
-| EnterpriseAnalytics.fact_batch_summary.enterprise_batch_id → LexingtonSite.batch_run.batch_id | 91 | Alignment — identifier scope unconfirmed | Reason provides name and glossary similarity but no evidence that enterprise batch ID and local batch ID share the same identifier namespace. High-band score requires explicit confirmation. |
-| EnterpriseAnalytics.fact_batch_summary.facility_key → LexingtonSite.batch_run.equip_id | 60 | Alignment — linkage evidence missing | Reason asserts facility_key links to equip_id with no stated basis (FK relationship, mapping table, or definition). Sample data described as numeric/site code is vague. |
-| EnterpriseAnalytics.fact_batch_summary.product_key → LexingtonSite.batch_run.product_code | 83 | Alignment — surrogate key path not stated | Reason says product_key links to product_code without explicit evidence of the join path (e.g., fact_batch_summary.product_key → dim_product.product_id → batch_run.product_code). High-band score requires this to be documented. |
-| EnterpriseAnalytics.fact_batch_summary.deviation_count → LexingtonSite.deviation_event.deviation_id | 48 | Alignment — derived metric not a direct match | Reason compares a count to an identifier. These are not equivalent columns. The reason should state the derivation logic explicitly (e.g., COUNT(deviation_id) per batch_id) rather than treating this as a direct column match. |
-| EnterpriseAnalytics.fact_batch_summary.source_site_code → LexingtonSite.equipment.building | 53 | Alignment — strengthen evidence | Reason relies on glossary similarity and short code patterns without establishing that a site code equals a building field. Concrete definition or sample value overlaps needed. |
-| EnterpriseAnalytics.fact_yield_analysis.avg_yield_pct → LexingtonSite.batch_run.yield_pct | 92 | Alignment — aggregation context missing | Reason cites glossary similarity and both being percentages, but source is an average while target is a per-batch value. High-band score requires explicit confirmation that avg_yield_pct = AVG(yield_pct) over a defined grouping. |
-
----
+| EnterpriseAnalytics.dim_facility.city → LexingtonSite.equipment.building | 48 | Alignment failure (internal contradiction) | Reason claims “facility location,” but maps **city** (geography) to **building** (site structure). This is a cross-domain leap with only generic “free text ≈ free text” support; too generous for the stated evidence. |
+| EnterpriseAnalytics.dim_facility.country_code → LexingtonSite.equipment.manufacturer | 45 | Both (internal contradiction) | Reason states “Both reference country/manufacturer” and then relies on “short codes (ISO, OEM)” **inferred from name/type**. The concepts are different (country vs manufacturer), and the evidence is speculative; mid-band score is too high given the contradiction and lack of direct overlap evidence. |
+| EnterpriseAnalytics.dim_facility.timezone_name → LexingtonSite.equipment.updated_at | 41 | Both (internal contradiction) | Reason asserts “timezone_name ≈ updated_at” and “time-related fields” inferred from name/type. **Timezone** and **timestamp updated_at** are different semantics; the proposed transformation (“extract TZ info”) is speculative without sample values showing embedded TZ. Score should be lower or match should be rejected pending evidence. |
+| EnterpriseAnalytics.dim_product.product_name → LexingtonSite.batch_run.step_name | 46 | Alignment failure (internal contradiction) | Reason treats product name and process step name as “descriptive names” inferred from name/type. This is not a direct semantic match; justification is weak and speculative for a mid-band score. |
+| EnterpriseAnalytics.dim_product.sku → LexingtonSite.batch_run.batch_id | 42 | Alignment failure (internal contradiction) | Reason claims “sku ≈ batch_id” based only on “both codes” inferred from name/type. SKU (product-level identifier) and batch_id (run/batch identifier) are different entities; insufficient evidence for mid-band score. |
+| EnterpriseAnalytics.dim_product.dosage_form → LexingtonSite.batch_run.notes | 44 | Alignment failure | Reason relies on both being “free text” inferred from name/type and suggests regex extraction. This is a weak, extraction-based hypothesis and should be scored lower unless sample notes demonstrate consistent dosage-form embedding. |
+| EnterpriseAnalytics.dim_product.therapeutic_class → LexingtonSite.batch_run.shift | 41 | Both | Reason claims categorical similarity inferred from name/type, but therapeutic class (medical/product classification) vs shift (operations schedule) are unrelated. Evidence does not support even a low-mid match; score is too generous. |
+| EnterpriseAnalytics.dim_quality_disposition.disposition_name → LexingtonSite.batch_run.batch_status | 81 | Alignment failure | Score is in the high band (≥80) but reason is only “glossary similarity” + “descriptive names” without explicit confirmation that disposition_name values actually equal/align to batch_status codes/names (especially since multiple EA columns map to the same target column). Evidence described is weaker than expected for high-band score. |
+| EnterpriseAnalytics.dim_quality_disposition.commercially_releasable → LexingtonSite.batch_run.batch_status | 61 | Alignment failure | A boolean “commercially_releasable” is mapped to a multi-valued status field. Reason says “boolean/status values” but provides no concrete mapping evidence (value set, rules, examples). Mid-band score is too high for a many-to-one semantic conversion without demonstrated business rule. |
+| EnterpriseAnalytics.dim_quality_disposition.deviation_implied → LexingtonSite.deviation_event.severity | 44 | Alignment failure | Reason cites “boolean/severity codes” inferred from name/type, but deviation_implied (boolean implication) and severity (multi-level categorical) are not equivalent. Needs explicit mapping logic/evidence; score too generous. |
+| EnterpriseAnalytics.fact_batch_summary.facility_key → LexingtonSite.batch_run.equip_id | 63 | Alignment failure | Reason is “inferred from name/type” with generic “identifier values.” Facility_key (facility dimension surrogate/key) vs equip_id (equipment identifier) is not clearly the same grain/entity; evidence is insufficient for a 63 score without crosswalk/foreign-key linkage evidence. |
 
 ### Recommendations
 
-1. **dim_facility.site_code → equipment.building (62):** Provide glossary excerpts showing building is a site/building code aligned to site_code, plus 3–5 overlapping sample values. If building is a physical name/label rather than a code, downgrade the score and move to needs business review.
+1. **EnterpriseAnalytics.dim_facility.city → LexingtonSite.equipment.building (48):**
+   - Replace the reason with a verifiable basis (e.g., show a controlled-location hierarchy where “building” contains “city,” or provide sample join keys proving a consistent relationship).
+   - If no direct semantic equivalence exists, **lower the score** (near-threshold) and label as “needs business review,” or remove as a proposed match.
 
-2. **dim_product.product_name → batch_run.step_name (41):** Update the reason to explicitly state this is a weak inferential candidate, or remove it. Re-score as unmatched unless documentation confirms step_name represents a product name at this site.
+2. **EnterpriseAnalytics.dim_facility.country_code → LexingtonSite.equipment.manufacturer (45):**
+   - Resolve the semantic contradiction: either identify the correct target for country_code or provide evidence that manufacturer stores country-of-origin codes (with sample values showing ISO-like codes).
+   - Until evidence is produced, **downgrade score below threshold** or mark as “no match.”
 
-3. **dim_product.sku → batch_run.product_code (80):** Either provide evidence of a validated crosswalk mapping SKU to product_code and cite it in the reason, or reduce the score to mid band because the reason itself states the codes differ by domain.
+3. **EnterpriseAnalytics.dim_facility.timezone_name → LexingtonSite.equipment.updated_at (41):**
+   - Provide sample values demonstrating timezone extraction feasibility (e.g., updated_at includes TZ offsets or named time zones).
+   - Otherwise, treat as **no match** (or score <40) because timestamp fields are not time zone attributes.
 
-4. **dim_product.dosage_form → batch_run.step_name (45):** Replace the generic reason with a concrete semantic basis using definition excerpts or sample values. If no such evidence exists, remove this mapping and treat dosage_form as an unmatched new canonical attribute candidate.
+4. **EnterpriseAnalytics.dim_product.product_name → LexingtonSite.batch_run.step_name (46):**
+   - Provide evidence that step_name actually contains product names (e.g., standardized step naming convention embedding product), with examples.
+   - If it is a process-step descriptor, **remove the match** and seek the proper product name source (or reduce score significantly).
 
-5. **fact_batch_summary.enterprise_batch_id → batch_run.batch_id (91):** Confirm whether Lexington batch_id is the enterprise-wide identifier or a local one. If local vs enterprise differs, add an explicit crosswalk to the transformation rule and review the score accordingly.
+5. **EnterpriseAnalytics.dim_product.sku → LexingtonSite.batch_run.batch_id (42):**
+   - Provide a mapping artifact proving sku is encoded in batch_id (or vice versa) via stable parsing rules and sample overlap.
+   - If they represent different entities, **mark as not a match** and do not map across grains.
 
-6. **fact_batch_summary.facility_key → batch_run.equip_id (60):** Provide the specific missing evidence: ERD/FK relationship, mapping table name, or definition. If facility_key is a surrogate for dim_facility, re-map to the correct business key (e.g., facility_id) rather than the surrogate.
+6. **EnterpriseAnalytics.dim_product.dosage_form → LexingtonSite.batch_run.notes (44):**
+   - Require at least several sample notes showing dosage form present in a consistent pattern before keeping the match.
+   - If this is only a potential enrichment, **lower the score** and clearly label as “derived attribute from notes; requires NLP/regex validation.”
 
-7. **fact_batch_summary.product_key → batch_run.product_code (83):** Document the full join path in the reason. If this is a multi-hop mapping, keep the match but reduce the score unless validated with sample join results.
+7. **EnterpriseAnalytics.dim_product.therapeutic_class → LexingtonSite.batch_run.shift (41):**
+   - Treat as **incorrect match** unless a documented domain relationship exists (unlikely). Remove or score <40.
+   - Re-run matching using domain constraints (clinical/product classification should not map to labor scheduling).
 
-8. **fact_batch_summary.deviation_count → deviation_event.deviation_id (48):** Correct the mapping intent — this is a derived metric not a column match. Update the reason to state the aggregation logic and grain explicitly (COUNT of deviation_id grouped by batch_id). Consider documenting as a transformation requirement rather than a direct match.
+8. **EnterpriseAnalytics.dim_quality_disposition.disposition_name → LexingtonSite.batch_run.batch_status (81):**
+   - For a high-band score, strengthen the reason with concrete evidence: explicit value-set alignment (e.g., disposition_name values list equals batch_status values list) or glossary statement that they are synonyms.
+   - Consider whether multiple EA fields mapping to batch_status indicates ambiguity; if ambiguous, **reduce score to mid-band** until resolved.
 
-9. **fact_batch_summary.source_site_code → equipment.building (53):** Show that building contains site codes rather than building names with overlapping sample values. If ambiguous, add needs validation language or lower the score.
+9. **EnterpriseAnalytics.dim_quality_disposition.commercially_releasable → LexingtonSite.batch_run.batch_status (61):**
+   - Document and validate the exact business rule (e.g., TRUE → COMPLETED/RELEASED, FALSE → ON_HOLD) with examples.
+   - If batch_status has more states than the boolean can represent, reduce score or model commercially_releasable as a separate attribute.
 
-10. **fact_yield_analysis.avg_yield_pct → batch_run.yield_pct (92):** Update the reason to state avg_yield_pct = AVG(batch_run.yield_pct) over a defined grouping (time period, product, facility). If the aggregation grouping is unknown, reduce to mid band and mark as requiring analytical validation.
+10. **EnterpriseAnalytics.dim_quality_disposition.deviation_implied → LexingtonSite.deviation_event.severity (44):**
+   - Provide evidence of how a boolean implies severity levels (mapping table, rules, or sample distributions).
+   - If no such rule exists, remove match or score below threshold and request business review.
 
----
+11. **EnterpriseAnalytics.fact_batch_summary.facility_key → LexingtonSite.batch_run.equip_id (63):**
+   - Require a crosswalk demonstrating facility_key corresponds to an equipment/site identifier (or that equip_id is actually a facility/site id despite name).
+   - If equip_id is equipment-grain and facility_key is facility-grain, treat as **non-equivalent** and find the correct facility identifier source; otherwise lower score and mark as “join required.”
 
-### Review Process and Findings
+### Review Process and Findings (Check 1.1)
 
-1. Extracted Section 1 score bands from the report summary (≥80 high, 40–79 mid) and used these as the only band definitions.
-2. Reviewed all 19 Section 2 rows and evaluated meaningfulness (whether each reason provides specific, checkable evidence) and alignment (whether the evidence strength supports the assigned score band).
-3. All 19 reasons were present and specific enough to be considered meaningful — each cites at least one evidence type.
-4. 10 rows show score alignment gaps, primarily where the reason is speculative or generic despite a mid or high score, or where the reason indicates surrogate/business-key or aggregation relationships without explicit validation for a high-band score.
-5. No internal contradictions were detected where a reason explicitly states no match while a high score is assigned; however, multiple rows express conceptual differences without sufficient validation to justify high-band placement.
+1. **Extraction (Step 1):** Evaluated all **21** Section 2 match rows, capturing each row’s Source (Application.Table.Column), Target (Application.Table.Column), Match Score, and stated Reason for Matching.
+
+2. **Meaningfulness assessment (Step 2):**
+   - All 21 reasons contained at least one specific evidence type (e.g., name similarity, glossary similarity, sample data pattern, explicit example patterns, or an explicit “inferred from name/type” qualifier).
+   - Therefore, **no rows failed meaningfulness** outright.
+
+3. **Score alignment assessment (Step 3):**
+   - Using the report’s own bands (≥80 high; 40–79 mid), **10 rows** were flagged for alignment issues.
+   - Main failure modes:
+     - **Cross-domain semantic mismatches** presented with mid-band scores (e.g., SKU vs batch_id; timezone vs updated_at).
+     - **High-band score without strong multi-signal evidence** (e.g., 81 with only generic glossary similarity language and ambiguity due to multiple sources mapping to the same target).
+
+4. **Discrepancy compilation (Step 4):**
+   - Logged **11** discrepancies total.
+   - **5** discrepancies include explicit internal contradictions where the reason itself describes different concepts/domains than the match implies.
+
+5. **Recommendations (Step 5):**
+   - Provided row-specific remediation actions: strengthen evidence (glossary/value-set/sample overlap), correct target selection, adjust scoring to reflect uncertainty, or remove incorrect matches.
