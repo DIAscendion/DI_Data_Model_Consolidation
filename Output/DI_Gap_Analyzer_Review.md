@@ -4,97 +4,64 @@
 
 | Metric | Detail |
 |---|---|
-| Total Section 2 rows evaluated | 21 |
-| Meaningful reasons | 21 / 100% |
-| Aligned with score | 11 / 52.4% |
-| Rows passing both checks | 11 / 52.4% |
-| Rows with internal contradictions | 5 |
-| Overall Check 1.1 result | Fail |
+| Input reviewed | `Output/DI_Model_Gap_Analyzer.md` (Section 2 — Column Matches) |
+| Total Section 2 rows evaluated | 39 |
+| Meaningful reasons | 39 / 39 (100%) |
+| Band label matches numeric score range | 39 / 39 (100%) |
+| Reasons aligned with score | 38 / 39 (97.4%) |
+| Rows passing both checks | 38 / 39 (97.4%) |
+| Rows with internal contradictions | 0 |
+| Advisory observations (aligned but low-confidence) | 5 items (rows 6; 21-22; 24; 31-38) |
+| Overall Check 1.1 result | Pass (with minor recommendations) |
 
 ### Gap Analysis Report
 
-**Score bands derived from Section 1 summary:**
-- High band: **≥80**
-- Mid band: **40–79**
-- Not mapped: **<40** (no rows in Section 2)
+**Score bands (from Section 1 of the Gap Analyzer report):**
+- **Strong: 85-100**
+- **Probable: 60-84**
+- **Possible: 40-59**
+- **Excluded: <40** (not present in Section 2)
 
-| Row Ref (Source → Target) | Match Score | Issue Type | Description |
+All 39 reasons cite concrete, multi-signal evidence (Name, Semantic, Pattern, and — where relevant — Transform), so none fail the meaningfulness test. All 39 band labels correctly match their numeric scores, and the 7 Strong / 13 Probable / 19 Possible split matches Section 1. The rows below are the only ones where the reason and the score are not fully aligned or warrant a caution for downstream consumers.
+
+| Row Ref (Mart A Lexington → Mart B Enterprise) | Match Score | Issue Type | Description |
 |---|---:|---|---|
-| EnterpriseAnalytics.dim_facility.city → LexingtonSite.equipment.building | 48 | Alignment failure (internal contradiction) | Reason claims “facility location,” but maps **city** (geography) to **building** (site structure). This is a cross-domain leap with only generic “free text ≈ free text” support; too generous for the stated evidence. |
-| EnterpriseAnalytics.dim_facility.country_code → LexingtonSite.equipment.manufacturer | 45 | Both (internal contradiction) | Reason states “Both reference country/manufacturer” and then relies on “short codes (ISO, OEM)” **inferred from name/type**. The concepts are different (country vs manufacturer), and the evidence is speculative; mid-band score is too high given the contradiction and lack of direct overlap evidence. |
-| EnterpriseAnalytics.dim_facility.timezone_name → LexingtonSite.equipment.updated_at | 41 | Both (internal contradiction) | Reason asserts “timezone_name ≈ updated_at” and “time-related fields” inferred from name/type. **Timezone** and **timestamp updated_at** are different semantics; the proposed transformation (“extract TZ info”) is speculative without sample values showing embedded TZ. Score should be lower or match should be rejected pending evidence. |
-| EnterpriseAnalytics.dim_product.product_name → LexingtonSite.batch_run.step_name | 46 | Alignment failure (internal contradiction) | Reason treats product name and process step name as “descriptive names” inferred from name/type. This is not a direct semantic match; justification is weak and speculative for a mid-band score. |
-| EnterpriseAnalytics.dim_product.sku → LexingtonSite.batch_run.batch_id | 42 | Alignment failure (internal contradiction) | Reason claims “sku ≈ batch_id” based only on “both codes” inferred from name/type. SKU (product-level identifier) and batch_id (run/batch identifier) are different entities; insufficient evidence for mid-band score. |
-| EnterpriseAnalytics.dim_product.dosage_form → LexingtonSite.batch_run.notes | 44 | Alignment failure | Reason relies on both being “free text” inferred from name/type and suggests regex extraction. This is a weak, extraction-based hypothesis and should be scored lower unless sample notes demonstrate consistent dosage-form embedding. |
-| EnterpriseAnalytics.dim_product.therapeutic_class → LexingtonSite.batch_run.shift | 41 | Both | Reason claims categorical similarity inferred from name/type, but therapeutic class (medical/product classification) vs shift (operations schedule) are unrelated. Evidence does not support even a low-mid match; score is too generous. |
-| EnterpriseAnalytics.dim_quality_disposition.disposition_name → LexingtonSite.batch_run.batch_status | 81 | Alignment failure | Score is in the high band (≥80) but reason is only “glossary similarity” + “descriptive names” without explicit confirmation that disposition_name values actually equal/align to batch_status codes/names (especially since multiple EA columns map to the same target column). Evidence described is weaker than expected for high-band score. |
-| EnterpriseAnalytics.dim_quality_disposition.commercially_releasable → LexingtonSite.batch_run.batch_status | 61 | Alignment failure | A boolean “commercially_releasable” is mapped to a multi-valued status field. Reason says “boolean/status values” but provides no concrete mapping evidence (value set, rules, examples). Mid-band score is too high for a many-to-one semantic conversion without demonstrated business rule. |
-| EnterpriseAnalytics.dim_quality_disposition.deviation_implied → LexingtonSite.deviation_event.severity | 44 | Alignment failure | Reason cites “boolean/severity codes” inferred from name/type, but deviation_implied (boolean implication) and severity (multi-level categorical) are not equivalent. Needs explicit mapping logic/evidence; score too generous. |
-| EnterpriseAnalytics.fact_batch_summary.facility_key → LexingtonSite.batch_run.equip_id | 63 | Alignment failure | Reason is “inferred from name/type” with generic “identifier values.” Facility_key (facility dimension surrogate/key) vs equip_id (equipment identifier) is not clearly the same grain/entity; evidence is insufficient for a 63 score without crosswalk/foreign-key linkage evidence. |
+| Row 16 — batch_run.yield_pct → dim_product.standard_yield_pct | 64 | Alignment concern | The reason concedes the columns share a metric family but play "different roles": batch_run.yield_pct is an actual/observed fact measure, while dim_product.standard_yield_pct is a validated target/benchmark stored on a dimension. A 64 (mid-Probable) implies the pair is probably the same consolidatable attribute, which overstates a relationship the reason itself qualifies and which rests mainly on the shared "yield_pct" token plus identical NUMERIC(6,3) type. The score is optimistic relative to the stated evidence. |
+| Row 6 — equipment.asset_type → fact_batch_summary.asset_class | 87 | Advisory (weakest Strong) | Placed in the Strong band (>=85) though the name signal is a synonym match ("asset_" root + type/class), not identical. Strong semantic agreement and genuine value overlap (Bioreactor, Filling Machine, Lyophilizer) justify a high score, but 87 assumes near-full name credit the reason does not fully substantiate. Aligned, but the weakest Strong. |
+| Rows 21-22 — parameter_reading.ingested_at → fact_batch_summary.loaded_at_utc / fact_yield_analysis.loaded_at_utc | 58 | Advisory (narrative vs score) | The reason labels the semantic "near-identical glossary" (the strongest semantic signal) yet both rows sit at 58, just under the Probable threshold. The Possible placement is correct given weak name overlap ("_at" only) and the timezone/type difference, but the "near-identical" wording overstates the pair's overall strength. |
+| Row 24 — batch_run.yield_pct → fact_yield_analysis.std_yield_pct | 57 | Advisory (name-driven) | A single batch/step yield is not the semantic equivalent of a standard-deviation statistic across many yields. The reason states this honestly and the low-Possible score is appropriate, but the match is carried by the shared "yield_pct" token rather than by semantics. |
+| Rows 31-38 — equipment.updated_at / batch_run.created_at / deviation_event.created_at / shift_log.created_at → *.loaded_at_utc | 44-48 | Advisory (low-confidence cluster) | Eight audit-timestamp pairs match source record update/creation times to mart load/refresh times, driven by the shared "_at" token and TIMESTAMP type. The reasons correctly note the semantic divergence (source event time vs mart-load time) and all sit in the low Possible band, so they are aligned, but the volume of weak name-plus-type timestamp matches should be surfaced so they are not treated as semantic equivalences. |
 
 ### Recommendations
 
-1. **EnterpriseAnalytics.dim_facility.city → LexingtonSite.equipment.building (48):**
-   - Replace the reason with a verifiable basis (e.g., show a controlled-location hierarchy where “building” contains “city,” or provide sample join keys proving a consistent relationship).
-   - If no direct semantic equivalence exists, **lower the score** (near-threshold) and label as “needs business review,” or remove as a proposed match.
+1. **Row 16 — batch_run.yield_pct → dim_product.standard_yield_pct (64):** Reclassify this pair to reflect the acknowledged role difference. Either lower the score into the low-Possible band or annotate it explicitly as a "benchmark/reference relationship, not a consolidation match," so the actual measure is not merged with the target/standard. If an actual-vs-standard comparison use case exists, model it as a derived KPI rather than a column equivalence.
 
-2. **EnterpriseAnalytics.dim_facility.country_code → LexingtonSite.equipment.manufacturer (45):**
-   - Resolve the semantic contradiction: either identify the correct target for country_code or provide evidence that manufacturer stores country-of-origin codes (with sample values showing ISO-like codes).
-   - Until evidence is produced, **downgrade score below threshold** or mark as “no match.”
+2. **Row 6 — equipment.asset_type → fact_batch_summary.asset_class (87):** Document the name-similarity contribution for a synonym pair (type vs class) or recompute the name component so the Strong-band placement is fully evidenced. If the name signal is only partial, confirm the score is carried by the semantic + value-overlap evidence and consider whether the pair belongs at the top of Probable versus low Strong.
 
-3. **EnterpriseAnalytics.dim_facility.timezone_name → LexingtonSite.equipment.updated_at (41):**
-   - Provide sample values demonstrating timezone extraction feasibility (e.g., updated_at includes TZ offsets or named time zones).
-   - Otherwise, treat as **no match** (or score <40) because timestamp fields are not time zone attributes.
+3. **Rows 21-22 — parameter_reading.ingested_at → *.loaded_at_utc (58):** Align the reason narrative with the sub-Probable score by stating that a strong semantic is offset by weak name overlap and a required timezone conversion. Avoid "near-identical" phrasing for a pair that lands in Possible, to prevent readers from over-trusting the match.
 
-4. **EnterpriseAnalytics.dim_product.product_name → LexingtonSite.batch_run.step_name (46):**
-   - Provide evidence that step_name actually contains product names (e.g., standardized step naming convention embedding product), with examples.
-   - If it is a process-step descriptor, **remove the match** and seek the proper product name source (or reduce score significantly).
+4. **Row 24 — batch_run.yield_pct → fact_yield_analysis.std_yield_pct (57):** Annotate as a name-driven candidate that is not a true semantic counterpart (individual value vs dispersion statistic). Confirm it should remain a proposed match at all, or drop it below threshold if a value-vs-statistic pairing is not useful for consolidation.
 
-5. **EnterpriseAnalytics.dim_product.sku → LexingtonSite.batch_run.batch_id (42):**
-   - Provide a mapping artifact proving sku is encoded in batch_id (or vice versa) via stable parsing rules and sample overlap.
-   - If they represent different entities, **mark as not a match** and do not map across grains.
-
-6. **EnterpriseAnalytics.dim_product.dosage_form → LexingtonSite.batch_run.notes (44):**
-   - Require at least several sample notes showing dosage form present in a consistent pattern before keeping the match.
-   - If this is only a potential enrichment, **lower the score** and clearly label as “derived attribute from notes; requires NLP/regex validation.”
-
-7. **EnterpriseAnalytics.dim_product.therapeutic_class → LexingtonSite.batch_run.shift (41):**
-   - Treat as **incorrect match** unless a documented domain relationship exists (unlikely). Remove or score <40.
-   - Re-run matching using domain constraints (clinical/product classification should not map to labor scheduling).
-
-8. **EnterpriseAnalytics.dim_quality_disposition.disposition_name → LexingtonSite.batch_run.batch_status (81):**
-   - For a high-band score, strengthen the reason with concrete evidence: explicit value-set alignment (e.g., disposition_name values list equals batch_status values list) or glossary statement that they are synonyms.
-   - Consider whether multiple EA fields mapping to batch_status indicates ambiguity; if ambiguous, **reduce score to mid-band** until resolved.
-
-9. **EnterpriseAnalytics.dim_quality_disposition.commercially_releasable → LexingtonSite.batch_run.batch_status (61):**
-   - Document and validate the exact business rule (e.g., TRUE → COMPLETED/RELEASED, FALSE → ON_HOLD) with examples.
-   - If batch_status has more states than the boolean can represent, reduce score or model commercially_releasable as a separate attribute.
-
-10. **EnterpriseAnalytics.dim_quality_disposition.deviation_implied → LexingtonSite.deviation_event.severity (44):**
-   - Provide evidence of how a boolean implies severity levels (mapping table, rules, or sample distributions).
-   - If no such rule exists, remove match or score below threshold and request business review.
-
-11. **EnterpriseAnalytics.fact_batch_summary.facility_key → LexingtonSite.batch_run.equip_id (63):**
-   - Require a crosswalk demonstrating facility_key corresponds to an equipment/site identifier (or that equip_id is actually a facility/site id despite name).
-   - If equip_id is equipment-grain and facility_key is facility-grain, treat as **non-equivalent** and find the correct facility identifier source; otherwise lower score and mark as “join required.”
+5. **Rows 31-38 — audit timestamps → *.loaded_at_utc (44-48):** Group these low-confidence audit-vs-load timestamp matches under an explicit caveat so downstream consumers do not treat "created_at/updated_at" as equivalent to "loaded_at_utc." Where a genuine load-time counterpart exists (e.g., parameter_reading.ingested_at, rows 21-22), prefer it and consider demoting the pure audit-field pairs.
 
 ### Review Process and Findings (Check 1.1)
 
-1. **Extraction (Step 1):** Evaluated all **21** Section 2 match rows, capturing each row’s Source (Application.Table.Column), Target (Application.Table.Column), Match Score, and stated Reason for Matching.
+1. **Extraction (Step 1):** Read `Output/DI_Model_Gap_Analyzer.md` fresh from branch `main` and extracted all 39 Section 2 rows, capturing each row's number, Score, Band, Mart A column (Lexington), Mart B column (Enterprise), and stated Reason.
 
-2. **Meaningfulness assessment (Step 2):**
-   - All 21 reasons contained at least one specific evidence type (e.g., name similarity, glossary similarity, sample data pattern, explicit example patterns, or an explicit “inferred from name/type” qualifier).
-   - Therefore, **no rows failed meaningfulness** outright.
+2. **Meaningfulness assessment (Step 2):** Every reason cites at least two concrete signals (Name, Semantic, Pattern) with specifics — identical/shared tokens, glossary semantics, data-type/enumeration/value-domain evidence, and transform notes where applicable. No reason is empty, generic, or a placeholder. Result: 39/39 meaningful.
 
-3. **Score alignment assessment (Step 3):**
-   - Using the report’s own bands (≥80 high; 40–79 mid), **10 rows** were flagged for alignment issues.
-   - Main failure modes:
-     - **Cross-domain semantic mismatches** presented with mid-band scores (e.g., SKU vs batch_id; timezone vs updated_at).
-     - **High-band score without strong multi-signal evidence** (e.g., 81 with only generic glossary similarity language and ambiguity due to multiple sources mapping to the same target).
+3. **Band-label verification (Step 3):** Confirmed every row's Band label matches the Section 1 bands (Strong 85-100, Probable 60-84, Possible 40-59). Rows 1-7 (94-86) are Strong, rows 8-20 (76-60) are Probable, and rows 21-39 (58-42) are Possible. The 7/13/19 counts match Section 1. Result: 39/39 correct.
 
-4. **Discrepancy compilation (Step 4):**
-   - Logged **11** discrepancies total.
-   - **5** discrepancies include explicit internal contradictions where the reason itself describes different concepts/domains than the match implies.
+4. **Score-alignment assessment (Step 4):** Judged whether each reason's evidence justifies its score without overstatement. 38 of 39 are aligned. One row (16) is optimistic: the reason concedes an actual-vs-benchmark role difference yet carries a mid-Probable score. No reason directly contradicts its own score (0 internal contradictions).
 
-5. **Recommendations (Step 5):**
-   - Provided row-specific remediation actions: strengthen evidence (glossary/value-set/sample overlap), correct target selection, adjust scoring to reflect uncertainty, or remove incorrect matches.
+5. **Advisory observations (Step 5):** Flagged 5 aligned-but-noteworthy items (rows 6; 21-22; 24; 31-38) where the score sits correctly within band but the match is borderline, name-driven, or where narrative wording overstates a low-band pair. These are cautions, not failures.
+
+6. **Outcome (Step 6):** Overall Check 1.1 result is **Pass (with minor recommendations)**. The Section 2 reasons are meaningful and, with one exception, aligned with their scores; the recommendations above tighten the single alignment concern and label the low-confidence matches.
+
+### Compliance Log
+
+- Input evaluated: `Output/DI_Model_Gap_Analyzer.md` (Section 2 — Column Matches), read from branch `main`.
+- Rows evaluated: 39 (all Section 2 rows with a Score and Reason).
+- Bands used: taken from the report's own Section 1 (Strong 85-100; Probable 60-84; Possible 40-59; excluded <40).
+- Note: the prior version of this review file described a different, 21-row input and is superseded by this evaluation of the current 39-row report.
+- Output written to: `Output/DI_Gap_Analyzer_Review.md`
