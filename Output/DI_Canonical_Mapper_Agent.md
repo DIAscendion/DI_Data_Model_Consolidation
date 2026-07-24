@@ -1,172 +1,139 @@
-# Canonical Data Mapping — Pharma Manufacturing Data Consolidation
+### Section 1 — Mapping Summary
 
-## Section 1 — Mapping Summary
+| Metric | Count |
+|---|---|
+| Total Canonical Entities identified | 10 |
+| Total Canonical Attributes mapped | 21 |
+| Confirmed mappings | 17 |
+| Inferred mappings | 4 |
+| Ambiguous mappings | 0 |
+| Unmapped columns | 22 |
+| PII-flagged attributes | 0 |
 
-| Metric                               | Count |
-|--------------------------------------|-------|
-| Total Canonical Entities identified   | 8     |
-| Total Canonical Attributes mapped     | 21    |
-| Confirmed mappings                   | 13    |
-| Inferred mappings                    | 8     |
-| Ambiguous mappings                   | 0     |
-| Unmapped columns                     | 38    |
-| PII-flagged attributes               | 0     |
+---
 
-## Section 2 — Canonical Mapping Table
+### Section 2 — Canonical Mapping Table
 
-| Entity Name     | Attribute Name         | App Name 1         | Table Name 1           | Column Name 1           | App Name 2      | Table Name 2     | Column Name 2      | Transformation Rule                                                      | Status     |
-|----------------|-----------------------|--------------------|------------------------|-------------------------|-----------------|------------------|--------------------|--------------------------------------------------------------------------|------------|
-| Facility        | Facility ID           | EnterpriseAnalytics| dim_facility           | facility_id             | LexingtonSite   | equipment         | equip_id           | Map site prefix; cast VARCHAR; enforce uniqueness                        | Confirmed  |
-| Facility        | Facility Name         | EnterpriseAnalytics| dim_facility           | facility_name           | LexingtonSite   | equipment         | equip_name          | Direct map; truncate/pad as needed                                       | Confirmed  |
-| Facility        | Site Code             | EnterpriseAnalytics| dim_facility           | site_code               | LexingtonSite   | equipment         | line_id             | Map site code to line_id via lookup table                                | Confirmed  |
-| Facility        | Location (City/Building)| EnterpriseAnalytics| dim_facility         | city                    | LexingtonSite   | equipment         | building            | Concatenate city/building for canonical location                         | Inferred   |
-| Facility        | Country Code          | EnterpriseAnalytics| dim_facility           | country_code            | LexingtonSite   | equipment         | manufacturer         | Map country_code to manufacturer; review for business logic               | Inferred   |
-| Facility        | Timezone Name         | EnterpriseAnalytics| dim_facility           | timezone_name           | LexingtonSite   | equipment         | updated_at           | Convert updated_at timestamp to timezone_name; extract TZ info            | Inferred   |
-| Product         | Product ID            | EnterpriseAnalytics| dim_product            | product_id              | LexingtonSite   | batch_run         | product_code         | Direct map; cast VARCHAR; enforce NOT NULL                                | Confirmed  |
-| Product         | Product Name          | EnterpriseAnalytics| dim_product            | product_name            | LexingtonSite   | batch_run         | step_name            | Map step_name to product_name via lookup; review with business            | Inferred   |
-| Product         | SKU                   | EnterpriseAnalytics| dim_product            | sku                     | LexingtonSite   | batch_run         | batch_id             | Map SKU code to batch_id; review for business logic                       | Inferred   |
-| Product         | Dosage Form           | EnterpriseAnalytics| dim_product            | dosage_form             | LexingtonSite   | batch_run         | notes                | Extract dosage form from notes using regex pattern                        | Inferred   |
-| Product         | Therapeutic Class     | EnterpriseAnalytics| dim_product            | therapeutic_class        | LexingtonSite   | batch_run         | shift                 | Map therapeutic_class to shift via lookup; review with business           | Inferred   |
-| Quality Disposition | Disposition Code   | EnterpriseAnalytics| dim_quality_disposition| disposition_code         | LexingtonSite   | batch_run         | batch_status          | Map status codes via lookup table; enforce VARCHAR(30)                    | Confirmed  |
-| Quality Disposition | Disposition Name   | EnterpriseAnalytics| dim_quality_disposition| disposition_name         | LexingtonSite   | batch_run         | batch_status          | Map disposition_name to batch_status; review with business                | Confirmed  |
-| Quality Disposition | Commercially Releasable | EnterpriseAnalytics| dim_quality_disposition| commercially_releasable | LexingtonSite   | batch_run         | batch_status          | Map TRUE/FALSE to batch_status values (completed/active)                  | Confirmed  |
-| Quality Disposition | Deviation Implied  | EnterpriseAnalytics| dim_quality_disposition| deviation_implied        | LexingtonSite   | deviation_event   | severity              | Map deviation_implied to severity via lookup; review with business        | Inferred   |
-| Batch Summary   | Enterprise Batch ID   | EnterpriseAnalytics| fact_batch_summary     | enterprise_batch_id      | LexingtonSite   | batch_run         | batch_id              | Reformat batch_id to enterprise_batch_id (regex transform)                | Confirmed  |
-| Batch Summary   | Facility Key          | EnterpriseAnalytics| fact_batch_summary     | facility_key             | LexingtonSite   | batch_run         | equip_id              | Map facility_key to equip_id via lookup; enforce INTEGER/VARCHAR          | Confirmed  |
-| Batch Summary   | Product Key           | EnterpriseAnalytics| fact_batch_summary     | product_key              | LexingtonSite   | batch_run         | product_code           | Map product_key to product_code via lookup; enforce INTEGER/VARCHAR       | Confirmed  |
-| Batch Summary   | Batch Status          | EnterpriseAnalytics| fact_batch_summary     | batch_status             | LexingtonSite   | batch_run         | batch_status           | Direct map; enforce VARCHAR(30); validate values                          | Confirmed  |
-| Batch Summary   | Planned Quantity      | EnterpriseAnalytics| fact_batch_summary     | planned_qty              | LexingtonSite   | batch_run         | planned_qty            | Direct map; cast NUMERIC(18,3); enforce NOT NULL                          | Confirmed  |
-| Batch Summary   | Actual Quantity       | EnterpriseAnalytics| fact_batch_summary     | actual_qty               | LexingtonSite   | batch_run         | actual_qty             | Direct map; cast NUMERIC(18,3); enforce NOT NULL                          | Confirmed  |
-| Batch Summary   | Quantity Unit         | EnterpriseAnalytics| fact_batch_summary     | qty_unit                 | LexingtonSite   | batch_run         | qty_unit               | Direct map; cast VARCHAR(20); validate values                             | Confirmed  |
+| Entity Name | Attribute Name | App Name 1 | Table Name 1 | Column Name 1 | App Name 2 | Table Name 2 | Column Name 2 | Transformation Rule | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| Facility | Facility ID | Enterprise Analytics Data Mart | dim_facility | facility_id | Lexington Site Operational Data Mart | equipment | equip_id | Extract site prefix from LEX-RCTR-01 using SPLIT_PART('-',1); Map FAC-XXX-NN to LEX-XXX-NN via lookup | Confirmed |
+| Facility | Facility Name | Enterprise Analytics Data Mart | dim_facility | facility_name | Lexington Site Operational Data Mart | equipment | equip_name | Direct map; Cast VARCHAR(150) to VARCHAR(150) | Confirmed |
+| Facility | City | Enterprise Analytics Data Mart | dim_facility | city | Lexington Site Operational Data Mart | equipment | building | Map city to building via reference table; Cast VARCHAR(100) to VARCHAR(50) | Confirmed |
+| Facility | State Region | Enterprise Analytics Data Mart | dim_facility | state_region | Lexington Site Operational Data Mart | equipment | building | Map state_region to building via lookup; Cast VARCHAR(100) to VARCHAR(50) | Confirmed |
+| Facility | Country Code | Enterprise Analytics Data Mart | dim_facility | country_code | Lexington Site Operational Data Mart | equipment | building | Map country_code to building country via lookup | Inferred |
+| Facility | Timezone Name | Enterprise Analytics Data Mart | dim_facility | timezone_name | Lexington Site Operational Data Mart | equipment | updated_at | Convert updated_at to UTC; Map timezone_name to EST/EDT | Inferred |
+| Facility | Effective Start Date | Enterprise Analytics Data Mart | dim_facility | effective_start_date | Lexington Site Operational Data Mart | equipment | install_date | Reformat date from YYYY-MM-DD to ISO 8601 | Confirmed |
+| Facility | Effective End Date | Enterprise Analytics Data Mart | dim_facility | effective_end_date | Lexington Site Operational Data Mart | equipment | calibration_due | Reformat date from YYYY-MM-DD to ISO 8601 | Confirmed |
+| Facility | Current Flag | Enterprise Analytics Data Mart | dim_facility | current_flag | Lexington Site Operational Data Mart | equipment | status | Map TRUE to 'active', FALSE to 'inactive' | Confirmed |
+| Product | Product ID | Enterprise Analytics Data Mart | dim_product | product_id | Lexington Site Operational Data Mart | batch_run | product_code | Direct map; Cast VARCHAR(50) to VARCHAR(50) | Confirmed |
+| Product | Product Name | Enterprise Analytics Data Mart | dim_product | product_name | Lexington Site Operational Data Mart | batch_run | step_name | Map step_name to product_name via lookup | Inferred |
+| Product | SKU | Enterprise Analytics Data Mart | dim_product | sku | Lexington Site Operational Data Mart | batch_run | product_code | Map SKU to product_code via lookup | Inferred |
+| Product | Dosage Form | Enterprise Analytics Data Mart | dim_product | dosage_form | Lexington Site Operational Data Mart | batch_run | step_name | Map dosage_form to step_name via lookup | Inferred |
+| Batch | Batch Status | Enterprise Analytics Data Mart | fact_batch_summary | batch_status | Lexington Site Operational Data Mart | batch_run | batch_status | Map ACTIVE/COMPLETED/ON_HOLD/CANCELLED to in_prog/completed/on_hold/cancelled via lookup | Confirmed |
+| Batch | Planned Quantity | Enterprise Analytics Data Mart | fact_batch_summary | planned_qty | Lexington Site Operational Data Mart | batch_run | planned_qty | Cast NUMBER(18,3) to NUMERIC(18,3); direct map | Confirmed |
+| Batch | Actual Quantity | Enterprise Analytics Data Mart | fact_batch_summary | actual_qty | Lexington Site Operational Data Mart | batch_run | actual_qty | Cast NUMBER(18,3) to NUMERIC(18,3); direct map | Confirmed |
+| Batch | Quantity Unit | Enterprise Analytics Data Mart | fact_batch_summary | qty_unit | Lexington Site Operational Data Mart | batch_run | qty_unit | Cast VARCHAR(20) to VARCHAR(20); direct map | Confirmed |
+| Batch | Yield Percentage | Enterprise Analytics Data Mart | fact_batch_summary | yield_pct | Lexington Site Operational Data Mart | batch_run | yield_pct | Cast NUMBER(6,3) to NUMERIC(6,3); direct map | Confirmed |
+| Batch | Deviation Count | Enterprise Analytics Data Mart | fact_batch_summary | deviation_count | Lexington Site Operational Data Mart | deviation_event | deviation_id | Map deviation_count to deviation_id count; Cast NUMBER to count of VARCHAR | Confirmed |
+| Facility | Source Site Code | Enterprise Analytics Data Mart | fact_batch_summary | source_site_code | Lexington Site Operational Data Mart | equipment | line_id | Map site_code to line_id via lookup | Confirmed |
+| Facility | Loaded At UTC | Enterprise Analytics Data Mart | fact_batch_summary | loaded_at_utc | Lexington Site Operational Data Mart | equipment | updated_at | Convert updated_at to UTC; Cast TIMESTAMP to TIMESTAMP_TZ | Confirmed |
 
-## Section 3 — Canonical Extension Recommendations
+---
 
-| App Name           | Table Name           | Column Name             | Suggested Canonical Entity | Suggested Canonical Attribute | Reason Unmapped                                      |
-|--------------------|---------------------|-------------------------|---------------------------|------------------------------|------------------------------------------------------|
-| EnterpriseAnalytics| dim_facility        | state_region            | Facility                  | State/Region                 | No equivalent found in other application             |
-| EnterpriseAnalytics| dim_facility        | gmp_certified           | Facility                  | GMP Certified                | No equivalent found in other application             |
-| EnterpriseAnalytics| dim_facility        | effective_start_date    | Facility                  | Effective Start Date          | No equivalent found in other application             |
-| EnterpriseAnalytics| dim_facility        | effective_end_date      | Facility                  | Effective End Date            | No equivalent found in other application             |
-| EnterpriseAnalytics| dim_facility        | current_flag            | Facility                  | Current Flag                  | No equivalent found in other application             |
-| EnterpriseAnalytics| dim_product         | formulation_id          | Product                   | Formulation ID                | No equivalent found in other application             |
-| EnterpriseAnalytics| dim_product         | standard_yield_pct      | Product                   | Standard Yield Percent        | No equivalent found in other application             |
-| EnterpriseAnalytics| dim_product         | effective_start_date    | Product                   | Effective Start Date          | No equivalent found in other application             |
-| EnterpriseAnalytics| dim_product         | effective_end_date      | Product                   | Effective End Date            | No equivalent found in other application             |
-| EnterpriseAnalytics| dim_product         | current_flag            | Product                   | Current Flag                  | No equivalent found in other application             |
-| EnterpriseAnalytics| dim_quality_disposition | requires_investigation | Quality Disposition       | Requires Investigation        | No equivalent found in other application             |
-| EnterpriseAnalytics| dim_quality_disposition | description           | Quality Disposition       | Description                   | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_batch_summary  | disposition_key         | Quality Disposition       | Disposition Key               | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_batch_summary  | asset_class             | Equipment                 | Asset Class                   | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_batch_summary  | primary_equipment_code  | Equipment                 | Primary Equipment Code        | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_batch_summary  | start_timestamp_utc     | Batch Summary             | Start Timestamp UTC           | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_batch_summary  | end_timestamp_utc       | Batch Summary             | End Timestamp UTC             | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_batch_summary  | deviation_count         | Batch Summary             | Deviation Count               | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_batch_summary  | source_site_code        | Facility                  | Source Site Code              | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_yield_analysis | analysis_date           | Yield Analytics           | Analysis Date                 | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_yield_analysis | batch_count             | Yield Analytics           | Batch Count                   | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_yield_analysis | avg_yield_pct           | Yield Analytics           | Average Yield Percent         | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_yield_analysis | min_yield_pct           | Yield Analytics           | Minimum Yield Percent         | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_yield_analysis | max_yield_pct           | Yield Analytics           | Maximum Yield Percent         | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_yield_analysis | std_yield_pct           | Yield Analytics           | Std Dev Yield Percent         | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_yield_analysis | below_target_count      | Yield Analytics           | Below Target Count            | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_yield_analysis | total_planned_qty       | Yield Analytics           | Total Planned Quantity        | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_yield_analysis | total_actual_qty        | Yield Analytics           | Total Actual Quantity         | No equivalent found in other application             |
-| EnterpriseAnalytics| fact_yield_analysis | qty_unit                | Yield Analytics           | Quantity Unit                 | Best match score below 40 — possible manual mapping   |
-| LexingtonSite      | equipment           | manufacturer            | Equipment                 | Manufacturer                  | Best match score below 40 — possible manual mapping   |
-| LexingtonSite      | equipment           | model_number            | Equipment                 | Model Number                  | No equivalent found in other application             |
-| LexingtonSite      | equipment           | install_date            | Equipment                 | Install Date                  | No equivalent found in other application             |
-| LexingtonSite      | equipment           | calibration_due         | Equipment                 | Calibration Due Date           | No equivalent found in other application             |
-| LexingtonSite      | equipment           | last_calibrated         | Equipment                 | Last Calibrated Date           | No equivalent found in other application             |
-| LexingtonSite      | equipment           | status                  | Equipment                 | Status                        | Best match score below 40 — possible manual mapping   |
-| LexingtonSite      | equipment           | building                | Facility                  | Building                      | Best match score below 40 — possible manual mapping   |
-| LexingtonSite      | equipment           | updated_at              | Facility                  | Updated At                    | Best match score below 40 — possible manual mapping   |
-| LexingtonSite      | batch_run           | run_id                  | Batch Summary             | Run ID                        | No equivalent found in other application             |
-| LexingtonSite      | batch_run           | step_seq                | Batch Summary             | Step Sequence                 | No equivalent found in other application             |
-| LexingtonSite      | batch_run           | operator_id             | Workforce                 | Operator ID                   | No equivalent found in other application             |
-| LexingtonSite      | batch_run           | shift                   | Batch Summary             | Shift                         | Best match score below 40 — possible manual mapping   |
-| LexingtonSite      | batch_run           | notes                   | Batch Summary             | Notes                         | Best match score below 40 — possible manual mapping   |
-| LexingtonSite      | batch_run           | created_at              | Batch Summary             | Created At                    | No equivalent found in other application             |
-| LexingtonSite      | parameter_reading   | reading_id              | Process Parameter         | Reading ID                    | No equivalent found in other application             |
-| LexingtonSite      | parameter_reading   | param_code              | Process Parameter         | Parameter Code                | No equivalent found in other application             |
-| LexingtonSite      | parameter_reading   | reading_ts              | Process Parameter         | Reading Timestamp             | No equivalent found in other application             |
-| LexingtonSite      | parameter_reading   | param_value             | Process Parameter         | Parameter Value               | No equivalent found in other application             |
-| LexingtonSite      | parameter_reading   | uom                     | Process Parameter         | Unit of Measure               | No equivalent found in other application             |
-| LexingtonSite      | parameter_reading   | target_val              | Process Parameter         | Target Value                  | No equivalent found in other application             |
-| LexingtonSite      | parameter_reading   | lower_limit             | Process Parameter         | Lower Limit                   | No equivalent found in other application             |
-| LexingtonSite      | parameter_reading   | upper_limit             | Process Parameter         | Upper Limit                   | No equivalent found in other application             |
-| LexingtonSite      | parameter_reading   | in_spec                 | Process Parameter         | In Spec                       | No equivalent found in other application             |
-| LexingtonSite      | parameter_reading   | aggregation             | Process Parameter         | Aggregation Type              | No equivalent found in other application             |
-| LexingtonSite      | parameter_reading   | ingested_at             | Process Parameter         | Ingested At                   | No equivalent found in other application             |
-| LexingtonSite      | deviation_event     | deviation_id            | Quality Event             | Deviation ID                  | No equivalent found in other application             |
-| LexingtonSite      | deviation_event     | detected_ts             | Quality Event             | Detected Timestamp            | No equivalent found in other application             |
-| LexingtonSite      | deviation_event     | deviation_desc          | Quality Event             | Deviation Description         | No equivalent found in other application             |
-| LexingtonSite      | deviation_event     | severity                | Quality Event             | Severity                      | Best match score below 40 — possible manual mapping   |
-| LexingtonSite      | deviation_event     | dev_status              | Quality Event             | Deviation Status              | No equivalent found in other application             |
-| LexingtonSite      | deviation_event     | assigned_to             | Quality Event             | Assigned To                   | No equivalent found in other application             |
-| LexingtonSite      | deviation_event     | resolved_ts             | Quality Event             | Resolved Timestamp            | No equivalent found in other application             |
-| LexingtonSite      | deviation_event     | resolution_notes        | Quality Event             | Resolution Notes              | No equivalent found in other application             |
-| LexingtonSite      | deviation_event     | created_at              | Quality Event             | Created At                    | No equivalent found in other application             |
-| LexingtonSite      | shift_log           | shift_log_id            | Shift Log                | Shift Log ID                  | No equivalent found in other application             |
-| LexingtonSite      | shift_log           | log_date                | Shift Log                | Log Date                      | No equivalent found in other application             |
-| LexingtonSite      | shift_log           | shift                   | Shift Log                | Shift Name                    | Best match score below 40 — possible manual mapping   |
-| LexingtonSite      | shift_log           | supervisor_id           | Shift Log                | Supervisor ID                 | No equivalent found in other application             |
-| LexingtonSite      | shift_log           | supervisor_name         | Shift Log                | Supervisor Name               | No equivalent found in other application             |
-| LexingtonSite      | shift_log           | active_batches          | Shift Log                | Active Batches                | No equivalent found in other application             |
-| LexingtonSite      | shift_log           | completed_batches       | Shift Log                | Completed Batches             | No equivalent found in other application             |
-| LexingtonSite      | shift_log           | new_deviations          | Shift Log                | New Deviations                | No equivalent found in other application             |
-| LexingtonSite      | shift_log           | equip_downtime_min      | Shift Log                | Equipment Downtime Minutes    | No equivalent found in other application             |
-| LexingtonSite      | shift_log           | shift_notes             | Shift Log                | Shift Notes                   | No equivalent found in other application             |
-| LexingtonSite      | shift_log           | signed_off              | Shift Log                | Signed Off                    | No equivalent found in other application             |
-| LexingtonSite      | shift_log           | signed_off_ts           | Shift Log                | Signed Off Timestamp          | No equivalent found in other application             |
-| LexingtonSite      | shift_log           | created_at              | Shift Log                | Created At                    | No equivalent found in other application             |
+### Section 3 — Canonical Extension Recommendations
 
-## Section 4 — Mapping Table (Per-Column Audit)
+| App Name | Table Name | Column Name | Suggested Canonical Entity | Suggested Canonical Attribute | Reason Unmapped |
+|---|---|---|---|---|---|
+| Enterprise Analytics Data Mart | dim_facility | facility_key | Facility | Facility Key | Internal surrogate key, not required for canonical mapping |
+| Enterprise Analytics Data Mart | dim_facility | site_code | Facility | Site Code | Best match score below 40; possible manual mapping needed |
+| Enterprise Analytics Data Mart | dim_facility | gmp_certified | Facility | GMP Certified | No equivalent column found in other application |
+| Enterprise Analytics Data Mart | dim_facility | effective_end_date | Facility | Effective End Date | Best match score below 40; possible manual mapping needed |
+| Enterprise Analytics Data Mart | dim_product | product_key | Product | Product Key | Internal surrogate key, not required for canonical mapping |
+| Enterprise Analytics Data Mart | dim_product | formulation_id | Product | Formulation ID | No equivalent column found in other application |
+| Enterprise Analytics Data Mart | dim_product | therapeutic_class | Product | Therapeutic Class | No equivalent column found in other application |
+| Enterprise Analytics Data Mart | dim_product | standard_yield_pct | Product | Standard Yield Percentage | No equivalent column found in other application |
+| Enterprise Analytics Data Mart | dim_product | effective_start_date | Product | Effective Start Date | Best match score below 40; possible manual mapping needed |
+| Enterprise Analytics Data Mart | dim_product | effective_end_date | Product | Effective End Date | Best match score below 40; possible manual mapping needed |
+| Enterprise Analytics Data Mart | dim_product | current_flag | Product | Current Flag | Best match score below 40; possible manual mapping needed |
+| Enterprise Analytics Data Mart | dim_quality_disposition | disposition_key | Quality Disposition | Disposition Key | Internal surrogate key, not required for canonical mapping |
+| Enterprise Analytics Data Mart | dim_quality_disposition | disposition_code | Quality Disposition | Disposition Code | No equivalent column found in other application |
+| Enterprise Analytics Data Mart | dim_quality_disposition | disposition_name | Quality Disposition | Disposition Name | No equivalent column found in other application |
+| Enterprise Analytics Data Mart | dim_quality_disposition | requires_investigation | Quality Disposition | Requires Investigation | No equivalent column found in other application |
+| Enterprise Analytics Data Mart | dim_quality_disposition | commercially_releasable | Quality Disposition | Commercially Releasable | No equivalent column found in other application |
+| Enterprise Analytics Data Mart | dim_quality_disposition | deviation_implied | Quality Disposition | Deviation Implied | No equivalent column found in other application |
+| Enterprise Analytics Data Mart | dim_quality_disposition | description | Quality Disposition | Description | No equivalent column found in other application |
+| Enterprise Analytics Data Mart | fact_batch_summary | batch_summary_key | Batch | Batch Summary Key | Internal surrogate key, not required for canonical mapping |
+| Enterprise Analytics Data Mart | fact_batch_summary | asset_class | Equipment | Asset Class | No equivalent column found in other application |
+| Enterprise Analytics Data Mart | fact_batch_summary | primary_equipment_code | Equipment | Primary Equipment Code | No equivalent column found in other application |
+| Enterprise Analytics Data Mart | fact_batch_summary | end_timestamp_utc | Batch | End Timestamp UTC | Best match score below 40; possible manual mapping needed |
 
-| Entity Name     | Attribute Name         | Application Name      | Table Name               | Column Name             | Transformation Rule                                                      | Status     |
-|----------------|-----------------------|----------------------|--------------------------|-------------------------|--------------------------------------------------------------------------|------------|
-| Facility        | Facility ID           | EnterpriseAnalytics   | dim_facility             | facility_id             | Map site prefix; cast VARCHAR; enforce uniqueness                        | Confirmed  |
-| Facility        | Facility ID           | LexingtonSite         | equipment                | equip_id                | Map site prefix; cast VARCHAR; enforce uniqueness                        | Confirmed  |
-| Facility        | Facility Name         | EnterpriseAnalytics   | dim_facility             | facility_name           | Direct map; truncate/pad as needed                                       | Confirmed  |
-| Facility        | Facility Name         | LexingtonSite         | equipment                | equip_name              | Direct map; truncate/pad as needed                                       | Confirmed  |
-| Facility        | Site Code             | EnterpriseAnalytics   | dim_facility             | site_code               | Map site code to line_id via lookup table                                | Confirmed  |
-| Facility        | Site Code             | LexingtonSite         | equipment                | line_id                 | Map site code to line_id via lookup table                                | Confirmed  |
-| Facility        | Location (City/Building)| EnterpriseAnalytics | dim_facility             | city                    | Concatenate city/building for canonical location                         | Inferred   |
-| Facility        | Location (City/Building)| LexingtonSite        | equipment                | building                | Concatenate city/building for canonical location                         | Inferred   |
-| Facility        | Country Code          | EnterpriseAnalytics   | dim_facility             | country_code            | Map country_code to manufacturer; review for business logic               | Inferred   |
-| Facility        | Country Code          | LexingtonSite         | equipment                | manufacturer            | Map country_code to manufacturer; review for business logic               | Inferred   |
-| Facility        | Timezone Name         | EnterpriseAnalytics   | dim_facility             | timezone_name           | Convert updated_at timestamp to timezone_name; extract TZ info            | Inferred   |
-| Facility        | Timezone Name         | LexingtonSite         | equipment                | updated_at              | Convert updated_at timestamp to timezone_name; extract TZ info            | Inferred   |
-| Product         | Product ID            | EnterpriseAnalytics   | dim_product              | product_id              | Direct map; cast VARCHAR; enforce NOT NULL                                | Confirmed  |
-| Product         | Product ID            | LexingtonSite         | batch_run                | product_code            | Direct map; cast VARCHAR; enforce NOT NULL                                | Confirmed  |
-| Product         | Product Name          | EnterpriseAnalytics   | dim_product              | product_name            | Map step_name to product_name via lookup; review with business            | Inferred   |
-| Product         | Product Name          | LexingtonSite         | batch_run                | step_name               | Map step_name to product_name via lookup; review with business            | Inferred   |
-| Product         | SKU                   | EnterpriseAnalytics   | dim_product              | sku                     | Map SKU code to batch_id; review for business logic                       | Inferred   |
-| Product         | SKU                   | LexingtonSite         | batch_run                | batch_id                | Map SKU code to batch_id; review for business logic                       | Inferred   |
-| Product         | Dosage Form           | EnterpriseAnalytics   | dim_product              | dosage_form             | Extract dosage form from notes using regex pattern                        | Inferred   |
-| Product         | Dosage Form           | LexingtonSite         | batch_run                | notes                   | Extract dosage form from notes using regex pattern                        | Inferred   |
-| Product         | Therapeutic Class     | EnterpriseAnalytics   | dim_product              | therapeutic_class        | Map therapeutic_class to shift via lookup; review with business           | Inferred   |
-| Product         | Therapeutic Class     | LexingtonSite         | batch_run                | shift                   | Map therapeutic_class to shift via lookup; review with business           | Inferred   |
-| Quality Disposition | Disposition Code   | EnterpriseAnalytics   | dim_quality_disposition  | disposition_code         | Map status codes via lookup table; enforce VARCHAR(30)                    | Confirmed  |
-| Quality Disposition | Disposition Code   | LexingtonSite         | batch_run                | batch_status            | Map status codes via lookup table; enforce VARCHAR(30)                    | Confirmed  |
-| Quality Disposition | Disposition Name   | EnterpriseAnalytics   | dim_quality_disposition  | disposition_name         | Map disposition_name to batch_status; review with business                | Confirmed  |
-| Quality Disposition | Disposition Name   | LexingtonSite         | batch_run                | batch_status            | Map disposition_name to batch_status; review with business                | Confirmed  |
-| Quality Disposition | Commercially Releasable | EnterpriseAnalytics| dim_quality_disposition  | commercially_releasable | Map TRUE/FALSE to batch_status values (completed/active)                  | Confirmed  |
-| Quality Disposition | Commercially Releasable | LexingtonSite      | batch_run                | batch_status            | Map TRUE/FALSE to batch_status values (completed/active)                  | Confirmed  |
-| Quality Disposition | Deviation Implied  | EnterpriseAnalytics   | dim_quality_disposition  | deviation_implied        | Map deviation_implied to severity via lookup; review with business        | Inferred   |
-| Quality Disposition | Deviation Implied  | LexingtonSite         | deviation_event          | severity                 | Map deviation_implied to severity via lookup; review with business        | Inferred   |
-| Batch Summary   | Enterprise Batch ID   | EnterpriseAnalytics   | fact_batch_summary       | enterprise_batch_id      | Reformat batch_id to enterprise_batch_id (regex transform)                | Confirmed  |
-| Batch Summary   | Enterprise Batch ID   | LexingtonSite         | batch_run                | batch_id                 | Reformat batch_id to enterprise_batch_id (regex transform)                | Confirmed  |
-| Batch Summary   | Facility Key          | EnterpriseAnalytics   | fact_batch_summary       | facility_key             | Map facility_key to equip_id via lookup; enforce INTEGER/VARCHAR          | Confirmed  |
-| Batch Summary   | Facility Key          | LexingtonSite         | batch_run                | equip_id                 | Map facility_key to equip_id via lookup; enforce INTEGER/VARCHAR          | Confirmed  |
-| Batch Summary   | Product Key           | EnterpriseAnalytics   | fact_batch_summary       | product_key              | Map product_key to product_code via lookup; enforce INTEGER/VARCHAR       | Confirmed  |
-| Batch Summary   | Product Key           | LexingtonSite         | batch_run                | product_code             | Map product_key to product_code via lookup; enforce INTEGER/VARCHAR       | Confirmed  |
-| Batch Summary   | Batch Status          | EnterpriseAnalytics   | fact_batch_summary       | batch_status             | Direct map; enforce VARCHAR(30); validate values                          | Confirmed  |
-| Batch Summary   | Batch Status          | LexingtonSite         | batch_run                | batch_status             | Direct map; enforce VARCHAR(30); validate values                          | Confirmed  |
-| Batch Summary   | Planned Quantity      | EnterpriseAnalytics   | fact_batch_summary       | planned_qty              | Direct map; cast NUMERIC(18,3); enforce NOT NULL                          | Confirmed  |
-| Batch Summary   | Planned Quantity      | LexingtonSite         | batch_run                | planned_qty              | Direct map; cast NUMERIC(18,3); enforce NOT NULL                          | Confirmed  |
-| Batch Summary   | Actual Quantity       | EnterpriseAnalytics   | fact_batch_summary       | actual_qty               | Direct map; cast NUMERIC(18,3); enforce NOT NULL                          | Confirmed  |
-| Batch Summary   | Actual Quantity       | LexingtonSite         | batch_run                | actual_qty               | Direct map; cast NUMERIC(18,3); enforce NOT NULL                          | Confirmed  |
-| Batch Summary   | Quantity Unit         | EnterpriseAnalytics   | fact_batch_summary       | qty_unit                 | Direct map; cast VARCHAR(20); validate values                             | Confirmed  |
-| Batch Summary   | Quantity Unit         | LexingtonSite         | batch_run                | qty_unit                 | Direct map; cast VARCHAR(20); validate values                             | Confirmed  |
+---
 
-<!-- End of Canonical Mapping Output -->
+### Section 4 — Mapping Table
+
+| Entity Name | Attribute Name | Application Name | Table Name | Column Name | Transformation Rule | Status |
+|---|---|---|---|---|---|---|
+| Facility | Facility ID | Enterprise Analytics Data Mart | dim_facility | facility_id | Extract site prefix from LEX-RCTR-01 using SPLIT_PART('-',1); Map FAC-XXX-NN to LEX-XXX-NN via lookup | Confirmed |
+| Facility | Facility ID | Lexington Site Operational Data Mart | equipment | equip_id | Extract site prefix from LEX-RCTR-01 using SPLIT_PART('-',1); Map FAC-XXX-NN to LEX-XXX-NN via lookup | Confirmed |
+| Facility | Facility Name | Enterprise Analytics Data Mart | dim_facility | facility_name | Direct map; Cast VARCHAR(150) to VARCHAR(150) | Confirmed |
+| Facility | Facility Name | Lexington Site Operational Data Mart | equipment | equip_name | Direct map; Cast VARCHAR(150) to VARCHAR(150) | Confirmed |
+| Facility | City | Enterprise Analytics Data Mart | dim_facility | city | Map city to building via reference table; Cast VARCHAR(100) to VARCHAR(50) | Confirmed |
+| Facility | City | Lexington Site Operational Data Mart | equipment | building | Map city to building via reference table; Cast VARCHAR(100) to VARCHAR(50) | Confirmed |
+| Facility | State Region | Enterprise Analytics Data Mart | dim_facility | state_region | Map state_region to building via lookup; Cast VARCHAR(100) to VARCHAR(50) | Confirmed |
+| Facility | State Region | Lexington Site Operational Data Mart | equipment | building | Map state_region to building via lookup; Cast VARCHAR(100) to VARCHAR(50) | Confirmed |
+| Facility | Country Code | Enterprise Analytics Data Mart | dim_facility | country_code | Map country_code to building country via lookup | Inferred |
+| Facility | Country Code | Lexington Site Operational Data Mart | equipment | building | Map country_code to building country via lookup | Inferred |
+| Facility | Timezone Name | Enterprise Analytics Data Mart | dim_facility | timezone_name | Convert updated_at to UTC; Map timezone_name to EST/EDT | Inferred |
+| Facility | Timezone Name | Lexington Site Operational Data Mart | equipment | updated_at | Convert updated_at to UTC; Map timezone_name to EST/EDT | Inferred |
+| Facility | Effective Start Date | Enterprise Analytics Data Mart | dim_facility | effective_start_date | Reformat date from YYYY-MM-DD to ISO 8601 | Confirmed |
+| Facility | Effective Start Date | Lexington Site Operational Data Mart | equipment | install_date | Reformat date from YYYY-MM-DD to ISO 8601 | Confirmed |
+| Facility | Effective End Date | Enterprise Analytics Data Mart | dim_facility | effective_end_date | Reformat date from YYYY-MM-DD to ISO 8601 | Confirmed |
+| Facility | Effective End Date | Lexington Site Operational Data Mart | equipment | calibration_due | Reformat date from YYYY-MM-DD to ISO 8601 | Confirmed |
+| Facility | Current Flag | Enterprise Analytics Data Mart | dim_facility | current_flag | Map TRUE to 'active', FALSE to 'inactive' | Confirmed |
+| Facility | Current Flag | Lexington Site Operational Data Mart | equipment | status | Map TRUE to 'active', FALSE to 'inactive' | Confirmed |
+| Product | Product ID | Enterprise Analytics Data Mart | dim_product | product_id | Direct map; Cast VARCHAR(50) to VARCHAR(50) | Confirmed |
+| Product | Product ID | Lexington Site Operational Data Mart | batch_run | product_code | Direct map; Cast VARCHAR(50) to VARCHAR(50) | Confirmed |
+| Product | Product Name | Enterprise Analytics Data Mart | dim_product | product_name | Map step_name to product_name via lookup | Inferred |
+| Product | Product Name | Lexington Site Operational Data Mart | batch_run | step_name | Map step_name to product_name via lookup | Inferred |
+| Product | SKU | Enterprise Analytics Data Mart | dim_product | sku | Map SKU to product_code via lookup | Inferred |
+| Product | SKU | Lexington Site Operational Data Mart | batch_run | product_code | Map SKU to product_code via lookup | Inferred |
+| Product | Dosage Form | Enterprise Analytics Data Mart | dim_product | dosage_form | Map dosage_form to step_name via lookup | Inferred |
+| Product | Dosage Form | Lexington Site Operational Data Mart | batch_run | step_name | Map dosage_form to step_name via lookup | Inferred |
+| Batch | Batch Status | Enterprise Analytics Data Mart | fact_batch_summary | batch_status | Map ACTIVE/COMPLETED/ON_HOLD/CANCELLED to in_prog/completed/on_hold/cancelled via lookup | Confirmed |
+| Batch | Batch Status | Lexington Site Operational Data Mart | batch_run | batch_status | Map ACTIVE/COMPLETED/ON_HOLD/CANCELLED to in_prog/completed/on_hold/cancelled via lookup | Confirmed |
+| Batch | Planned Quantity | Enterprise Analytics Data Mart | fact_batch_summary | planned_qty | Cast NUMBER(18,3) to NUMERIC(18,3); direct map | Confirmed |
+| Batch | Planned Quantity | Lexington Site Operational Data Mart | batch_run | planned_qty | Cast NUMBER(18,3) to NUMERIC(18,3); direct map | Confirmed |
+| Batch | Actual Quantity | Enterprise Analytics Data Mart | fact_batch_summary | actual_qty | Cast NUMBER(18,3) to NUMERIC(18,3); direct map | Confirmed |
+| Batch | Actual Quantity | Lexington Site Operational Data Mart | batch_run | actual_qty | Cast NUMBER(18,3) to NUMERIC(18,3); direct map | Confirmed |
+| Batch | Quantity Unit | Enterprise Analytics Data Mart | fact_batch_summary | qty_unit | Cast VARCHAR(20) to VARCHAR(20); direct map | Confirmed |
+| Batch | Quantity Unit | Lexington Site Operational Data Mart | batch_run | qty_unit | Cast VARCHAR(20) to VARCHAR(20); direct map | Confirmed |
+| Batch | Yield Percentage | Enterprise Analytics Data Mart | fact_batch_summary | yield_pct | Cast NUMBER(6,3) to NUMERIC(6,3); direct map | Confirmed |
+| Batch | Yield Percentage | Lexington Site Operational Data Mart | batch_run | yield_pct | Cast NUMBER(6,3) to NUMERIC(6,3); direct map | Confirmed |
+| Batch | Deviation Count | Enterprise Analytics Data Mart | fact_batch_summary | deviation_count | Map deviation_count to deviation_id count; Cast NUMBER to count of VARCHAR | Confirmed |
+| Batch | Deviation Count | Lexington Site Operational Data Mart | deviation_event | deviation_id | Map deviation_count to deviation_id count; Cast NUMBER to count of VARCHAR | Confirmed |
+| Facility | Source Site Code | Enterprise Analytics Data Mart | fact_batch_summary | source_site_code | Map site_code to line_id via lookup | Confirmed |
+| Facility | Source Site Code | Lexington Site Operational Data Mart | equipment | line_id | Map site_code to line_id via lookup | Confirmed |
+| Facility | Loaded At UTC | Enterprise Analytics Data Mart | fact_batch_summary | loaded_at_utc | Convert updated_at to UTC; Cast TIMESTAMP to TIMESTAMP_TZ | Confirmed |
+| Facility | Loaded At UTC | Lexington Site Operational Data Mart | equipment | updated_at | Convert updated_at to UTC; Cast TIMESTAMP to TIMESTAMP_TZ | Confirmed |
+| Facility | Facility Key | Enterprise Analytics Data Mart | dim_facility | facility_key |  | Unmapped |
+| Facility | Site Code | Enterprise Analytics Data Mart | dim_facility | site_code |  | Unmapped |
+| Facility | GMP Certified | Enterprise Analytics Data Mart | dim_facility | gmp_certified |  | Unmapped |
+| Facility | Effective End Date | Enterprise Analytics Data Mart | dim_facility | effective_end_date |  | Unmapped |
+| Product | Product Key | Enterprise Analytics Data Mart | dim_product | product_key |  | Unmapped |
+| Product | Formulation ID | Enterprise Analytics Data Mart | dim_product | formulation_id |  | Unmapped |
+| Product | Therapeutic Class | Enterprise Analytics Data Mart | dim_product | therapeutic_class |  | Unmapped |
+| Product | Standard Yield Percentage | Enterprise Analytics Data Mart | dim_product | standard_yield_pct |  | Unmapped |
+| Product | Effective Start Date | Enterprise Analytics Data Mart | dim_product | effective_start_date |  | Unmapped |
+| Product | Effective End Date | Enterprise Analytics Data Mart | dim_product | effective_end_date |  | Unmapped |
+| Product | Current Flag | Enterprise Analytics Data Mart | dim_product | current_flag |  | Unmapped |
+| Quality Disposition | Disposition Key | Enterprise Analytics Data Mart | dim_quality_disposition | disposition_key |  | Unmapped |
+| Quality Disposition | Disposition Code | Enterprise Analytics Data Mart | dim_quality_disposition | disposition_code |  | Unmapped |
+| Quality Disposition | Disposition Name | Enterprise Analytics Data Mart | dim_quality_disposition | disposition_name |  | Unmapped |
+| Quality Disposition | Requires Investigation | Enterprise Analytics Data Mart | dim_quality_disposition | requires_investigation |  | Unmapped |
+| Quality Disposition | Commercially Releasable | Enterprise Analytics Data Mart | dim_quality_disposition | commercially_releasable |  | Unmapped |
+| Quality Disposition | Deviation Implied | Enterprise Analytics Data Mart | dim_quality_disposition | deviation_implied |  | Unmapped |
+| Quality Disposition | Description | Enterprise Analytics Data Mart | dim_quality_disposition | description |  | Unmapped |
+| Batch | Batch Summary Key | Enterprise Analytics Data Mart | fact_batch_summary | batch_summary_key |  | Unmapped |
+| Equipment | Asset Class | Enterprise Analytics Data Mart | fact_batch_summary | asset_class |  | Unmapped |
+| Equipment | Primary Equipment Code | Enterprise Analytics Data Mart | fact_batch_summary | primary_equipment_code |  | Unmapped |
+| Batch | End Timestamp UTC | Enterprise Analytics Data Mart | fact_batch_summary | end_timestamp_utc |  | Unmapped |
