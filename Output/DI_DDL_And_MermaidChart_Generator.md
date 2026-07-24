@@ -2,7 +2,7 @@
 
 ```sql
 
--- [DIMENSION] DIM_ORGANIZATION
+-- [DIMENSION]
 CREATE TABLE DIM_ORGANIZATION (
     OrganizationKey INTEGER AUTOINCREMENT,
     OrganizationID VARCHAR(50),
@@ -14,6 +14,9 @@ CREATE TABLE DIM_ORGANIZATION (
     IsActive BOOLEAN,
     EffectiveStartDate DATE,
     EffectiveEndDate DATE,
+    IsCurrent BOOLEAN,
+    EffectiveDate DATE,
+    ExpiryDate DATE,
     SourceSystem VARCHAR(50),
     SourceKey VARCHAR(100),
     CreatedAt TIMESTAMP_TZ,
@@ -22,12 +25,10 @@ CREATE TABLE DIM_ORGANIZATION (
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    IsCurrent BOOLEAN,
-    ExpiryDate DATE,
     PRIMARY KEY (OrganizationKey)
 );
 
--- [DIMENSION] DIM_FACILITY
+-- [DIMENSION]
 CREATE TABLE DIM_FACILITY (
     FacilityKey INTEGER AUTOINCREMENT,
     FacilityID VARCHAR(50),
@@ -58,6 +59,9 @@ CREATE TABLE DIM_FACILITY (
     EffectiveEndDate DATE,
     CurrentFlag BOOLEAN,
     ScdVersion INTEGER,
+    IsCurrent BOOLEAN,
+    EffectiveDate DATE,
+    ExpiryDate DATE,
     SourceSystem VARCHAR(50),
     SourceKey VARCHAR(100),
     CreatedAt TIMESTAMP_TZ,
@@ -66,13 +70,11 @@ CREATE TABLE DIM_FACILITY (
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    IsCurrent BOOLEAN,
-    ExpiryDate DATE,
     PRIMARY KEY (FacilityKey),
     FOREIGN KEY (OrganizationKey) REFERENCES DIM_ORGANIZATION(OrganizationKey)
 );
 
--- [DIMENSION] DIM_PRODUCT
+-- [DIMENSION]
 CREATE TABLE DIM_PRODUCT (
     ProductKey INTEGER AUTOINCREMENT,
     ProductID VARCHAR(50),
@@ -103,6 +105,9 @@ CREATE TABLE DIM_PRODUCT (
     EffectiveEndDate DATE,
     CurrentFlag BOOLEAN,
     ScdVersion INTEGER,
+    IsCurrent BOOLEAN,
+    EffectiveDate DATE,
+    ExpiryDate DATE,
     SourceProductCodeMartA VARCHAR(50),
     SourceProductCodeOps VARCHAR(50),
     SourceSystem VARCHAR(50),
@@ -113,13 +118,11 @@ CREATE TABLE DIM_PRODUCT (
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    IsCurrent BOOLEAN,
-    ExpiryDate DATE,
     PRIMARY KEY (ProductKey),
     FOREIGN KEY (OrganizationKey) REFERENCES DIM_ORGANIZATION(OrganizationKey)
 );
 
--- [DIMENSION] DIM_MATERIAL_LOT
+-- [DIMENSION]
 CREATE TABLE DIM_MATERIAL_LOT (
     MaterialLotKey INTEGER AUTOINCREMENT,
     LotNumber VARCHAR(80),
@@ -148,7 +151,7 @@ CREATE TABLE DIM_MATERIAL_LOT (
     FOREIGN KEY (FacilityKey) REFERENCES DIM_FACILITY(FacilityKey)
 );
 
--- [DIMENSION] DIM_EQUIPMENT
+-- [DIMENSION]
 CREATE TABLE DIM_EQUIPMENT (
     EquipmentKey INTEGER AUTOINCREMENT,
     CanonicalEquipmentID VARCHAR(50),
@@ -178,6 +181,9 @@ CREATE TABLE DIM_EQUIPMENT (
     EquipmentStatus VARCHAR(30),
     StatusEffectiveDate DATE,
     DecommissionDate DATE,
+    IsCurrent BOOLEAN,
+    EffectiveDate DATE,
+    ExpiryDate DATE,
     SourceEquipIdMartA VARCHAR(50),
     SourceAssetCodeOps VARCHAR(50),
     SourceEquipCodeMartB VARCHAR(50),
@@ -189,14 +195,11 @@ CREATE TABLE DIM_EQUIPMENT (
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    IsCurrent BOOLEAN,
-    EffectiveDate DATE,
-    ExpiryDate DATE,
     PRIMARY KEY (EquipmentKey),
     FOREIGN KEY (FacilityKey) REFERENCES DIM_FACILITY(FacilityKey)
 );
 
--- [DIMENSION] DIM_PROCESS_STEP
+-- [DIMENSION]
 CREATE TABLE DIM_PROCESS_STEP (
     ProcessStepKey INTEGER AUTOINCREMENT,
     StepCode VARCHAR(40),
@@ -220,7 +223,7 @@ CREATE TABLE DIM_PROCESS_STEP (
     PRIMARY KEY (ProcessStepKey)
 );
 
--- [DIMENSION] DIM_PROCESS_PARAMETER
+-- [DIMENSION]
 CREATE TABLE DIM_PROCESS_PARAMETER (
     ParameterKey INTEGER AUTOINCREMENT,
     ParameterCode VARCHAR(60),
@@ -250,7 +253,7 @@ CREATE TABLE DIM_PROCESS_PARAMETER (
     PRIMARY KEY (ParameterKey)
 );
 
--- [DIMENSION] DIM_QUALITY_DISPOSITION
+-- [DIMENSION]
 CREATE TABLE DIM_QUALITY_DISPOSITION (
     DispositionKey INTEGER AUTOINCREMENT,
     DispositionCode VARCHAR(40),
@@ -276,7 +279,7 @@ CREATE TABLE DIM_QUALITY_DISPOSITION (
     PRIMARY KEY (DispositionKey)
 );
 
--- [DIMENSION] DIM_DEVIATION_CATEGORY
+-- [DIMENSION]
 CREATE TABLE DIM_DEVIATION_CATEGORY (
     DeviationCategoryKey INTEGER AUTOINCREMENT,
     CategoryCode VARCHAR(50),
@@ -285,19 +288,19 @@ CREATE TABLE DIM_DEVIATION_CATEGORY (
     Description VARCHAR(500),
     CapaTypicallyRequired BOOLEAN,
     IsActive BOOLEAN,
+    IsCurrent BOOLEAN,
+    EffectiveDate DATE,
+    ExpiryDate DATE,
     CreatedAt TIMESTAMP_TZ,
     CreatedBy VARCHAR(100),
     UpdatedAt TIMESTAMP_TZ,
     UpdatedBy VARCHAR(100),
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
-    IsCurrent BOOLEAN,
-    EffectiveDate DATE,
-    ExpiryDate DATE,
     PRIMARY KEY (DeviationCategoryKey)
 );
 
--- [DIMENSION] DIM_OPERATOR
+-- [DIMENSION]
 CREATE TABLE DIM_OPERATOR (
     OperatorKey INTEGER AUTOINCREMENT,
     OperatorID VARCHAR(50),
@@ -321,7 +324,7 @@ CREATE TABLE DIM_OPERATOR (
     FOREIGN KEY (FacilityKey) REFERENCES DIM_FACILITY(FacilityKey)
 );
 
--- [DIMENSION] DIM_DATE
+-- [DIMENSION]
 CREATE TABLE DIM_DATE (
     DateKey INTEGER AUTOINCREMENT,
     FullDate DATE,
@@ -343,7 +346,7 @@ CREATE TABLE DIM_DATE (
     PRIMARY KEY (DateKey)
 );
 
--- [FACT] FACT_PRODUCTION_ORDER
+-- [FACT]
 CREATE TABLE FACT_PRODUCTION_ORDER (
     ProductionOrderKey INTEGER AUTOINCREMENT,
     CanonicalBatchID VARCHAR(50),
@@ -393,7 +396,7 @@ CREATE TABLE FACT_PRODUCTION_ORDER (
     FOREIGN KEY (ShiftSupervisorKey) REFERENCES DIM_OPERATOR(OperatorKey)
 );
 
--- [FACT] FACT_BATCH_STEP
+-- [FACT]
 CREATE TABLE FACT_BATCH_STEP (
     BatchStepKey INTEGER AUTOINCREMENT,
     ProductionOrderKey INTEGER,
@@ -435,7 +438,7 @@ CREATE TABLE FACT_BATCH_STEP (
     FOREIGN KEY (VerifierKey) REFERENCES DIM_OPERATOR(OperatorKey)
 );
 
--- [FACT] FACT_EQUIPMENT_TELEMETRY
+-- [FACT]
 CREATE TABLE FACT_EQUIPMENT_TELEMETRY (
     TelemetryKey INTEGER AUTOINCREMENT,
     EquipmentKey INTEGER,
@@ -477,7 +480,7 @@ CREATE TABLE FACT_EQUIPMENT_TELEMETRY (
     FOREIGN KEY (ParameterKey) REFERENCES DIM_PROCESS_PARAMETER(ParameterKey)
 );
 
--- [FACT] FACT_DEVIATION
+-- [FACT]
 CREATE TABLE FACT_DEVIATION (
     DeviationKey INTEGER AUTOINCREMENT,
     CanonicalDeviationID VARCHAR(60),
@@ -534,10 +537,10 @@ CREATE TABLE FACT_DEVIATION (
     FOREIGN KEY (ClosedByKey) REFERENCES DIM_OPERATOR(OperatorKey)
 );
 
--- [FACT] FACT_YIELD_ANALYTICS
+-- [FACT]
 CREATE TABLE FACT_YIELD_ANALYTICS (
     YieldAnalyticsKey INTEGER AUTOINCREMENT,
-    AnalysisDate DATE,
+    AnalysisDateKey INTEGER,
     FacilityKey INTEGER,
     ProductKey INTEGER,
     AggregationLevel VARCHAR(30),
@@ -571,16 +574,16 @@ CREATE TABLE FACT_YIELD_ANALYTICS (
     IsDeleted BOOLEAN,
     DeletedAt TIMESTAMP_TZ,
     PRIMARY KEY (YieldAnalyticsKey),
-    FOREIGN KEY (AnalysisDate) REFERENCES DIM_DATE(FullDate),
+    FOREIGN KEY (AnalysisDateKey) REFERENCES DIM_DATE(DateKey),
     FOREIGN KEY (FacilityKey) REFERENCES DIM_FACILITY(FacilityKey),
     FOREIGN KEY (ProductKey) REFERENCES DIM_PRODUCT(ProductKey)
 );
 
--- [FACT] FACT_SHIFT_LOG
+-- [FACT]
 CREATE TABLE FACT_SHIFT_LOG (
     ShiftLogKey INTEGER AUTOINCREMENT,
     FacilityKey INTEGER,
-    LogDate DATE,
+    LogDateKey INTEGER,
     ShiftName VARCHAR(20),
     ShiftStartUtc TIMESTAMP_TZ,
     ShiftEndUtc TIMESTAMP_TZ,
@@ -606,7 +609,7 @@ CREATE TABLE FACT_SHIFT_LOG (
     DeletedAt TIMESTAMP_TZ,
     PRIMARY KEY (ShiftLogKey),
     FOREIGN KEY (FacilityKey) REFERENCES DIM_FACILITY(FacilityKey),
-    FOREIGN KEY (LogDate) REFERENCES DIM_DATE(FullDate),
+    FOREIGN KEY (LogDateKey) REFERENCES DIM_DATE(DateKey),
     FOREIGN KEY (SupervisorKey) REFERENCES DIM_OPERATOR(OperatorKey)
 );
 
@@ -662,6 +665,9 @@ erDiagram
         boolean IsActive
         date EffectiveStartDate
         date EffectiveEndDate
+        boolean IsCurrent
+        date EffectiveDate
+        date ExpiryDate
         varchar SourceSystem
         varchar SourceKey
         timestamp CreatedAt
@@ -670,8 +676,6 @@ erDiagram
         varchar UpdatedBy
         boolean IsDeleted
         timestamp DeletedAt
-        boolean IsCurrent
-        date ExpiryDate
     }
 
     DimFacility {
@@ -704,6 +708,9 @@ erDiagram
         date EffectiveEndDate
         boolean CurrentFlag
         int ScdVersion
+        boolean IsCurrent
+        date EffectiveDate
+        date ExpiryDate
         varchar SourceSystem
         varchar SourceKey
         timestamp CreatedAt
@@ -712,8 +719,6 @@ erDiagram
         varchar UpdatedBy
         boolean IsDeleted
         timestamp DeletedAt
-        boolean IsCurrent
-        date ExpiryDate
     }
 
     DimProduct {
@@ -746,6 +751,9 @@ erDiagram
         date EffectiveEndDate
         boolean CurrentFlag
         int ScdVersion
+        boolean IsCurrent
+        date EffectiveDate
+        date ExpiryDate
         varchar SourceProductCodeMartA
         varchar SourceProductCodeOps
         varchar SourceSystem
@@ -756,8 +764,6 @@ erDiagram
         varchar UpdatedBy
         boolean IsDeleted
         timestamp DeletedAt
-        boolean IsCurrent
-        date ExpiryDate
     }
 
     DimMaterialLot {
@@ -814,6 +820,9 @@ erDiagram
         varchar EquipmentStatus
         date StatusEffectiveDate
         date DecommissionDate
+        boolean IsCurrent
+        date EffectiveDate
+        date ExpiryDate
         varchar SourceEquipIdMartA
         varchar SourceAssetCodeOps
         varchar SourceEquipCodeMartB
@@ -825,9 +834,6 @@ erDiagram
         varchar UpdatedBy
         boolean IsDeleted
         timestamp DeletedAt
-        boolean IsCurrent
-        date EffectiveDate
-        date ExpiryDate
     }
 
     DimProcessStep {
@@ -912,15 +918,15 @@ erDiagram
         varchar Description
         boolean CapaTypicallyRequired
         boolean IsActive
+        boolean IsCurrent
+        date EffectiveDate
+        date ExpiryDate
         timestamp CreatedAt
         varchar CreatedBy
         timestamp UpdatedAt
         varchar UpdatedBy
         boolean IsDeleted
         timestamp DeletedAt
-        boolean IsCurrent
-        date EffectiveDate
-        date ExpiryDate
     }
 
     DimOperator {
@@ -1125,7 +1131,7 @@ erDiagram
 
     FactYieldAnalytics {
         int YieldAnalyticsKey PK
-        date AnalysisDate FK
+        int AnalysisDateKey FK
         int FacilityKey FK
         int ProductKey FK
         varchar AggregationLevel
@@ -1163,7 +1169,7 @@ erDiagram
     FactShiftLog {
         int ShiftLogKey PK
         int FacilityKey FK
-        date LogDate FK
+        int LogDateKey FK
         varchar ShiftName
         timestamp ShiftStartUtc
         timestamp ShiftEndUtc
@@ -1199,9 +1205,9 @@ erDiagram
 | Fact Tables generated | 6 |
 | Dimension Tables generated | 9 |
 | CREATE TABLE statements generated | 15 |
-| FK Relationships defined | 29 |
+| FK Relationships defined | 31 |
 | SCD Type 2 Dimensions | 5 |
 | DimDate included | Yes |
 | DDL Compliance | Pass |
 | Mermaid Validity | Pass |
-| Notes | All tables from the analytical model were converted to Snowflake DDL with corresponding Mermaid ER entities and relationships, maintaining one-to-one alignment across sections. |
+| Notes | Updated FactYieldAnalytics and FactShiftLog to use surrogate DimDate keys (AnalysisDateKey, LogDateKey) and aligned SCD Type 2 columns across dimensions (IsCurrent, EffectiveDate, ExpiryDate), while maintaining one-to-one table and entity alignment. |
