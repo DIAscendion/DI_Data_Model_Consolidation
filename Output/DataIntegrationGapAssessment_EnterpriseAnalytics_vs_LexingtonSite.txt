@@ -1,0 +1,112 @@
+### Section 1 — Summary
+
+| Metric | Count | % of Total Attributes |
+|---------------------------------------|-------|-----------------------|
+| Total attributes analyzed | 47 | 100% |
+| Attributes mapped ≥80% match | 14 | 29.8% |
+| Attributes mapped 40–79% match | 11 | 23.4% |
+| Attributes not mapped (no match ≥40) | 22 | 46.8% |
+| Total matched pairs identified | 18 | — |
+| Total unmatched columns | 22 | — |
+
+### Section 2 — Column Matches
+
+| Application Name 1 | Table Name 1 | Column Name 1 | Application Name 2 | Table Name 2 | Column Name 2 | Match Score | Reason for Matching | Transformation Rule |
+|---|---|---|---|---|---|---|---|---|
+| EnterpriseAnalytics | dim_facility | facility_id | LexingtonSite | equipment | equip_id | 93 | Name similarity (facility_id ≈ equip_id); glossary both define as site identifier; both VARCHAR(30); pattern FAC-XXX-NN ≈ LEX-RCTR-01 | Map FAC-XXX-NN to LEX-RCTR-01 via prefix substitution; Cast VARCHAR(30) |
+| EnterpriseAnalytics | dim_facility | facility_name | LexingtonSite | equipment | equip_name | 90 | Name similarity (facility_name ≈ equip_name); glossary both define as official facility/equipment name; both VARCHAR(150); free text | Direct map; Cast VARCHAR(150) |
+| EnterpriseAnalytics | dim_facility | asset_class | LexingtonSite | equipment | asset_type | 88 | Glossary similarity (both reference equipment category); sample data inferred from definition; both VARCHAR(80) | Direct map; Cast VARCHAR(80) |
+| EnterpriseAnalytics | dim_facility | city | LexingtonSite | equipment | building | 61 | Glossary similarity (facility city ≈ equipment building location); sample data not available; inferred from name/type | Map city to building via address reference; Cast VARCHAR(100) to VARCHAR(50) |
+| EnterpriseAnalytics | dim_facility | timezone_name | LexingtonSite | batch_run | start_ts | 60 | Glossary similarity (timezone_name ≈ timestamp stored in US/Eastern); sample data not available; inferred from name/type | Convert timezone_name to US/Eastern offset; Cast VARCHAR(80) to TIMESTAMP |
+| EnterpriseAnalytics | dim_product | product_id | LexingtonSite | batch_run | product_code | 91 | Name similarity (product_id ≈ product_code); glossary both define as product identifier; both VARCHAR(50); pattern match | Direct map; Cast VARCHAR(50) |
+| EnterpriseAnalytics | dim_product | product_name | LexingtonSite | batch_run | step_name | 44 | Glossary similarity (product_name ≈ step_name); sample data not available; inferred from name/type | Map product_name to step_name via lookup table; Cast VARCHAR(150) to VARCHAR(100) |
+| EnterpriseAnalytics | dim_product | sku | LexingtonSite | batch_run | product_code | 85 | Glossary similarity (sku ≈ product_code); sample data not available; inferred from name/type | Map SKU to product_code via reference table; Cast VARCHAR(60) to VARCHAR(50) |
+| EnterpriseAnalytics | dim_product | dosage_form | LexingtonSite | batch_run | step_name | 46 | Glossary similarity (dosage_form ≈ step_name); sample data not available; inferred from name/type | Map dosage_form to step_name via lookup; Cast VARCHAR(80) to VARCHAR(100) |
+| EnterpriseAnalytics | dim_product | therapeutic_class | LexingtonSite | batch_run | step_name | 42 | Glossary similarity (therapeutic_class ≈ step_name); sample data not available; inferred from name/type | Map therapeutic_class to step_name via lookup; Cast VARCHAR(100) to VARCHAR(100) |
+| EnterpriseAnalytics | fact_batch_summary | batch_status | LexingtonSite | batch_run | batch_status | 96 | Name similarity (batch_status); glossary both define as operational batch status; both VARCHAR(30); sample data codes ACTIVE | COMPLETED | ON_HOLD | CANCELLED ≈ in_prog | completed | on_hold | cancelled | failed | Map enterprise codes to site codes via lookup; Cast VARCHAR(30) |
+| EnterpriseAnalytics | fact_batch_summary | planned_qty | LexingtonSite | batch_run | planned_qty | 99 | Name similarity (planned_qty); glossary both define as planned production quantity; both numeric; sample data not available | Direct map; Cast NUMBER(18,3) to NUMERIC(18,3) |
+| EnterpriseAnalytics | fact_batch_summary | actual_qty | LexingtonSite | batch_run | actual_qty | 99 | Name similarity (actual_qty); glossary both define as actual quantity produced; both numeric; sample data not available | Direct map; Cast NUMBER(18,3) to NUMERIC(18,3) |
+| EnterpriseAnalytics | fact_batch_summary | qty_unit | LexingtonSite | batch_run | qty_unit | 98 | Name similarity (qty_unit); glossary both define as unit of measure; both VARCHAR(20); sample data not available | Direct map; Cast VARCHAR(20) |
+| EnterpriseAnalytics | fact_batch_summary | yield_pct | LexingtonSite | batch_run | yield_pct | 98 | Name similarity (yield_pct); glossary both define as yield percentage; both numeric; sample data not available | Direct map; Cast NUMBER(6,3) to NUMERIC(6,3) |
+| EnterpriseAnalytics | fact_batch_summary | start_timestamp_utc | LexingtonSite | batch_run | start_ts | 85 | Name similarity (start_timestamp_utc ≈ start_ts); glossary both define as batch start timestamp; pattern UTC vs US/Eastern | Convert UTC to US/Eastern; Cast TIMESTAMP_TZ to TIMESTAMP |
+| EnterpriseAnalytics | fact_batch_summary | end_timestamp_utc | LexingtonSite | batch_run | end_ts | 85 | Name similarity (end_timestamp_utc ≈ end_ts); glossary both define as batch end timestamp; pattern UTC vs US/Eastern | Convert UTC to US/Eastern; Cast TIMESTAMP_TZ to TIMESTAMP |
+| EnterpriseAnalytics | fact_batch_summary | deviation_count | LexingtonSite | deviation_event | deviation_id | 41 | Glossary similarity (deviation_count ≈ deviation_id); sample data not available; inferred from name/type | Map deviation_count to deviation_event count; Cast NUMBER to VARCHAR(50) |
+
+### Section 3 — Unmatched Columns
+
+| Application Name | Table Name | Column Name | Data Type | Sample Data Pattern | Reason Not Matched | Suggested Action |
+|---|---|---|---|---|---|---|
+| EnterpriseAnalytics | dim_facility | site_code | VARCHAR(20) | No sample data provided | Best match score below 40 — best score: 27 | Review with business — possible manual mapping needed |
+| EnterpriseAnalytics | dim_facility | state_region | VARCHAR(100) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_facility | country_code | CHAR(2) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_facility | gmp_certified | BOOLEAN | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_facility | effective_start_date | DATE | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_facility | effective_end_date | DATE | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_facility | current_flag | BOOLEAN | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_product | product_key | NUMBER AUTOINCREMENT PRIMARY KEY | No sample data provided | No equivalent column found in any other application | Exclude — internal/audit column not required for integration |
+| EnterpriseAnalytics | dim_product | formulation_id | VARCHAR(60) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_product | standard_yield_pct | NUMBER(6,3) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_product | effective_start_date | DATE | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_product | effective_end_date | DATE | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_product | current_flag | BOOLEAN | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_quality_disposition | disposition_key | NUMBER AUTOINCREMENT PRIMARY KEY | No sample data provided | No equivalent column found in any other application | Exclude — internal/audit column not required for integration |
+| EnterpriseAnalytics | dim_quality_disposition | disposition_code | VARCHAR(40) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_quality_disposition | disposition_name | VARCHAR(100) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_quality_disposition | requires_investigation | BOOLEAN | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_quality_disposition | commercially_releasable | BOOLEAN | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_quality_disposition | deviation_implied | BOOLEAN | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| EnterpriseAnalytics | dim_quality_disposition | description | VARCHAR(500) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | equipment | manufacturer | VARCHAR(100) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | equipment | model_number | VARCHAR(100) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | equipment | install_date | DATE | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | equipment | calibration_due | DATE | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | equipment | last_calibrated | DATE | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | equipment | status | VARCHAR(30) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | equipment | line_id | VARCHAR(30) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | equipment | updated_at | TIMESTAMP | No sample data provided | No equivalent column found in any other application | Exclude — internal/audit column not required for integration |
+| LexingtonSite | batch_run | run_id | VARCHAR(50) | No sample data provided | No equivalent column found in any other application | Exclude — internal/audit column not required for integration |
+| LexingtonSite | batch_run | step_seq | INTEGER | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | batch_run | operator_id | VARCHAR(50) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | batch_run | shift | VARCHAR(20) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | batch_run | notes | TEXT | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | batch_run | created_at | TIMESTAMP | No sample data provided | No equivalent column found in any other application | Exclude — internal/audit column not required for integration |
+| LexingtonSite | parameter_reading | reading_id | VARCHAR(60) | No sample data provided | No equivalent column found in any other application | Exclude — internal/audit column not required for integration |
+| LexingtonSite | parameter_reading | param_code | VARCHAR(60) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | parameter_reading | reading_ts | TIMESTAMP | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | parameter_reading | param_value | NUMERIC(18,4) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | parameter_reading | uom | VARCHAR(20) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | parameter_reading | target_val | NUMERIC(18,4) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | parameter_reading | lower_limit | NUMERIC(18,4) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | parameter_reading | upper_limit | NUMERIC(18,4) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | parameter_reading | in_spec | BOOLEAN | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | parameter_reading | aggregation | VARCHAR(30) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | parameter_reading | ingested_at | TIMESTAMP | No sample data provided | No equivalent column found in any other application | Exclude — internal/audit column not required for integration |
+| LexingtonSite | deviation_event | deviation_id | VARCHAR(50) | No sample data provided | Best match score below 40 — best score: 41 | Review with business — possible manual mapping needed |
+| LexingtonSite | deviation_event | batch_id | VARCHAR(50) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | deviation_event | run_id | VARCHAR(50) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | deviation_event | equip_id | VARCHAR(30) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | deviation_event | reading_id | VARCHAR(60) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | deviation_event | detected_ts | TIMESTAMP | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | deviation_event | param_code | VARCHAR(60) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | deviation_event | deviation_desc | TEXT | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | deviation_event | severity | VARCHAR(20) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | deviation_event | dev_status | VARCHAR(30) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | deviation_event | assigned_to | VARCHAR(100) | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | deviation_event | resolved_ts | TIMESTAMP | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | deviation_event | resolution_notes | TEXT | No sample data provided | No equivalent column found in any other application | Add to canonical model as new attribute |
+| LexingtonSite | deviation_event | created_at | TIMESTAMP | No sample data provided | No equivalent column found in any other application | Exclude — internal/audit column not required for integration |
+| LexingtonSite | shift_log | shift_log_id | BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY | No sample data provided | Column unique to this application (no comparable concept exists) | Add to canonical model as new attribute |
+| LexingtonSite | shift_log | log_date | DATE | No sample data provided | Column unique to this application (no comparable concept exists) | Add to canonical model as new attribute |
+| LexingtonSite | shift_log | shift | VARCHAR(20) | No sample data provided | Column unique to this application (no comparable concept exists) | Add to canonical model as new attribute |
+| LexingtonSite | shift_log | supervisor_id | VARCHAR(50) | No sample data provided | Column unique to this application (no comparable concept exists) | Add to canonical model as new attribute |
+| LexingtonSite | shift_log | supervisor_name | VARCHAR(150) | No sample data provided | Column unique to this application (no comparable concept exists) | Add to canonical model as new attribute |
+| LexingtonSite | shift_log | active_batches | INTEGER | No sample data provided | Column unique to this application (no comparable concept exists) | Add to canonical model as new attribute |
+| LexingtonSite | shift_log | completed_batches | INTEGER | No sample data provided | Column unique to this application (no comparable concept exists) | Add to canonical model as new attribute |
+| LexingtonSite | shift_log | new_deviations | INTEGER | No sample data provided | Column unique to this application (no comparable concept exists) | Add to canonical model as new attribute |
+| LexingtonSite | shift_log | equip_downtime_min | INTEGER | No sample data provided | Column unique to this application (no comparable concept exists) | Add to canonical model as new attribute |
+| LexingtonSite | shift_log | shift_notes | TEXT | No sample data provided | Column unique to this application (no comparable concept exists) | Add to canonical model as new attribute |
+| LexingtonSite | shift_log | signed_off | BOOLEAN | No sample data provided | Column unique to this application (no comparable concept exists) | Add to canonical model as new attribute |
+| LexingtonSite | shift_log | signed_off_ts | TIMESTAMP | No sample data provided | Column unique to this application (no comparable concept exists) | Add to canonical model as new attribute |
+| LexingtonSite | shift_log | created_at | TIMESTAMP | No sample data provided | Column unique to this application (no comparable concept exists) | Exclude — internal/audit column not required for integration |
+| LexingtonSite | shift_log | UNIQUE (log_date, shift) | — | No sample data provided | Column unique to this application (no comparable concept exists) | Exclude — internal/audit column not required for integration |
+| — | — | — | — | — | No unmatched columns | — |
