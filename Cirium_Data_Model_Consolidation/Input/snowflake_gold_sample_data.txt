@@ -1,0 +1,1199 @@
+Cirium Aviation Intelligence Mart -- Snowflake | Table: airline_master
+Reference Domain: airline master data -- SCD Type 1 (overwrite in place). One row per operating carrier. active_flag identifies airlines currently active in the network.
+airline_id,airline_code,airline_name,country,active_flag
+1,AA,American Airlines,USA,TRUE
+2,DL,Delta Air Lines,USA,TRUE
+3,UA,United Airlines,USA,TRUE
+4,WN,Southwest Airlines,USA,TRUE
+5,BA,British Airways,UK,TRUE
+6,LH,Lufthansa,Germany,TRUE
+7,AF,Air France,France,TRUE
+8,KL,KLM,Netherlands,TRUE
+9,EK,Emirates,UAE,TRUE
+10,QR,Qatar Airways,Qatar,TRUE
+11,SQ,Singapore Airlines,Singapore,TRUE
+12,CX,Cathay Pacific,Hong Kong,TRUE
+13,QF,Qantas,Australia,TRUE
+14,AC,Air Canada,Canada,TRUE
+15,NH,ANA,Japan,TRUE
+16,JL,Japan Airlines,Japan,TRUE
+17,TK,Turkish Airlines,Turkey,TRUE
+18,LX,Swiss,Switzerland,TRUE
+19,IB,Iberia,Spain,TRUE
+20,AZ,ITA Airways,Italy,TRUE
+21,EY,Etihad Airways,UAE,TRUE
+22,SV,Saudia,Saudi Arabia,TRUE
+23,AI,Air India,India,TRUE
+24,6E,IndiGo,India,TRUE
+25,SG,SpiceJet,India,TRUE
+26,FR,Ryanair,Ireland,TRUE
+27,U2,easyJet,UK,TRUE
+28,B6,JetBlue Airways,USA,TRUE
+29,NK,Spirit Airlines,USA,TRUE
+30,F9,Frontier Airlines,USA,TRUE
+31,AS,Alaska Airlines,USA,TRUE
+32,HA,Hawaiian Airlines,USA,TRUE
+33,VS,Virgin Atlantic,UK,TRUE
+34,MH,Malaysia Airlines,Malaysia,TRUE
+35,GA,Garuda Indonesia,Indonesia,TRUE
+36,TG,Thai Airways,Thailand,TRUE
+37,VN,Vietnam Airlines,Vietnam,TRUE
+38,PR,Philippine Airlines,Philippines,TRUE
+39,CI,China Airlines,Taiwan,TRUE
+40,BR,EVA Air,Taiwan,TRUE
+41,KE,Korean Air,South Korea,TRUE
+42,MU,UK National Airlines,UK,FALSE
+43,LS,Mexico Frontier Airlines,Mexico,TRUE
+44,BC,France Horizon Airlines,France,TRUE
+45,CR,Spain Connect Airlines,Spain,TRUE
+46,HU,Mexico Alpine Airlines,Mexico,TRUE
+47,SM,Chile Express Airlines,Chile,FALSE
+48,RE,Canada Atlantic Airlines,Canada,TRUE
+49,DS,New Zealand Charter Airlines,New Zealand,TRUE
+50,SS,Mexico Sky Airlines,Mexico,TRUE
+51,RW,Mexico Metro Airlines,Mexico,TRUE
+52,GP,Peru Express Airlines,Peru,TRUE
+53,OS,Kenya Highland Airlines,Kenya,TRUE
+54,HZ,Nigeria Metro Airlines,Nigeria,TRUE
+55,SJ,Brazil Atlantic Airlines,Brazil,TRUE
+56,JT,China National Airlines,China,TRUE
+57,NF,Australia Cargo Airlines,Australia,TRUE
+58,NB,Japan Charter Airlines,Japan,TRUE
+59,SZ,New Zealand Connect Airlines,New Zealand,TRUE
+60,WL,Kenya National Airlines,Kenya,TRUE
+61,CC,China Alpine Airlines,China,TRUE
+62,BX,Brazil Summit Airlines,Brazil,TRUE
+63,JW,China Alpine Airlines,China,TRUE
+64,OL,USA Metro Airlines,USA,TRUE
+65,BG,Japan Cargo Airlines,Japan,TRUE
+66,MM,Spain Charter Airlines,Spain,TRUE
+67,FO,Brazil Summit Airlines,Brazil,TRUE
+68,NR,UK Continental Airlines,UK,TRUE
+69,VM,South Africa Highland Airlines,South Africa,TRUE
+70,FE,Brazil Charter Airlines,Brazil,TRUE
+71,PS,USA Atlantic Airlines,USA,TRUE
+72,EN,USA Global Airlines,USA,TRUE
+73,WQA,Chile Northern Airlines,Chile,TRUE
+74,MDH,Egypt Frontier Airlines,Egypt,TRUE
+75,CG,France Express Airlines,France,TRUE
+76,TB,Kenya Cargo Airlines,Kenya,TRUE
+77,RD,UK Alpine Airlines,UK,TRUE
+78,TMC,USA Northern Airlines,USA,TRUE
+79,LP,Peru Metro Airlines,Peru,TRUE
+80,PP,China Summit Airlines,China,TRUE
+81,XK,Mexico Charter Airlines,Mexico,TRUE
+82,QA,Germany Summit Airlines,Germany,TRUE
+83,EW,South Africa Horizon Airlines,South Africa,TRUE
+84,JU,Australia Regional Airlines,Australia,TRUE
+85,LF,Australia Continental Airlines,Australia,TRUE
+86,RY,New Zealand Atlantic Airlines,New Zealand,TRUE
+87,ZZ,Peru Atlantic Airlines,Peru,TRUE
+88,MX,Spain Pacific Airlines,Spain,TRUE
+89,PL,Australia Pacific Airlines,Australia,TRUE
+90,PI,Italy Regional Airlines,Italy,TRUE
+91,OZ,South Africa Northern Airlines,South Africa,TRUE
+92,CH,South Africa Metro Airlines,South Africa,TRUE
+93,KG,France Summit Airlines,France,TRUE
+94,PU,USA Northern Airlines,USA,TRUE
+95,MZ,Mexico Connect Airlines,Mexico,TRUE
+96,FN,Japan Pacific Airlines,Japan,TRUE
+97,ZX,Brazil National Airlines,Brazil,TRUE
+98,XF,Brazil Island Airlines,Brazil,TRUE
+99,ES,USA Charter Airlines,USA,TRUE
+100,TP,Peru Charter Airlines,Peru,TRUE
+
+Cirium Aviation Intelligence Mart -- Snowflake | Table: aircraft_master
+Reference Domain: aircraft master data -- SCD Type 1. One row per tail number. operator_airline_id links each aircraft to its assigned carrier in airline_master.
+aircraft_id,tail_number,aircraft_type,manufacturer,delivery_date,retirement_date,operator_airline_id
+1,N259RR,Airbus A320neo,Airbus,2002-01-01,,93
+2,N205QX,Embraer E190,Embraer,2002-07-28,2020-01-09,28
+3,N613HY,Boeing 747-8F,Boeing,2016-06-09,,70
+4,N954EB,Airbus A321neo,Airbus,2021-06-15,,85
+5,N934QN,Airbus A380-800,Airbus,2014-03-18,,20
+6,N622AO,Airbus A350-900,Airbus,2022-03-20,,1
+7,N918EF,Bombardier CRJ900,Bombardier,2002-08-20,,72
+8,N433VQ,Boeing 737-800,Boeing,2014-09-16,,100
+9,N673BH,Boeing 737 MAX 8,Boeing,2004-05-02,,65
+10,N675AY,Airbus A330-300,Airbus,2000-08-11,,65
+11,N624GW,Airbus A380-800,Airbus,2006-08-17,,62
+12,N353WQ,Airbus A350-900,Airbus,2006-09-07,,18
+13,N224MO,Airbus A321neo,Airbus,2008-02-22,2024-04-22,39
+14,N225YE,Bombardier CRJ900,Bombardier,2020-11-22,,47
+15,N359EO,Boeing 777-300ER,Boeing,2005-12-04,,63
+16,N783HF,Boeing 777-300ER,Boeing,2020-07-17,,52
+17,N531GL,Airbus A320neo,Airbus,2008-02-24,,44
+18,N569OW,Airbus A350-900,Airbus,1998-07-11,,38
+19,N165DZ,Airbus A350-900,Airbus,2005-02-03,2020-03-09,97
+20,N939NV,Boeing 777-300ER,Boeing,2006-07-05,,66
+21,N606WK,Airbus A380-800,Airbus,2000-05-02,,24
+22,N174IA,Airbus A321neo,Airbus,2018-02-26,,34
+23,N722HC,Boeing 737 MAX 8,Boeing,2006-02-15,2027-05-20,17
+24,N639WH,Boeing 737-800,Boeing,2001-03-09,2019-05-21,40
+25,N877GJ,Airbus A350-900,Airbus,2012-09-22,,23
+26,N455ZA,Boeing 747-8F,Boeing,2006-01-01,2024-09-16,32
+27,N557DV,Boeing 767-300F,Boeing,2018-07-22,,64
+28,N954MQ,Airbus A350-900,Airbus,2007-12-07,,44
+29,N952WX,Boeing 787-9,Boeing,2018-03-13,,45
+30,N957EA,Boeing 737-800,Boeing,2000-11-24,,56
+31,N156CV,Boeing 777-300ER,Boeing,2010-09-22,,37
+32,N348WJ,Airbus A380-800,Airbus,1999-08-06,2021-01-09,47
+33,N660KH,Airbus A320neo,Airbus,1999-05-07,,1
+34,N490CP,Airbus A320neo,Airbus,2006-09-21,2021-02-09,12
+35,N509SB,Boeing 777-300ER,Boeing,2010-01-10,,39
+36,N338CS,Embraer E190,Embraer,2014-03-22,,92
+37,N710MY,Bombardier CRJ900,Bombardier,2008-12-16,2025-01-27,92
+38,N625UN,Boeing 767-300F,Boeing,2021-12-26,,65
+39,N636YQ,Boeing 777-300ER,Boeing,2016-01-27,,88
+40,N917WV,Airbus A380-800,Airbus,2020-11-08,,11
+41,N142EU,Boeing 737-800,Boeing,2009-02-13,,72
+42,N742AU,Boeing 737-800,Boeing,2015-11-08,,63
+43,N103OZ,Boeing 747-8F,Boeing,2000-12-17,,12
+44,N638CX,Embraer E190,Embraer,2021-08-09,,10
+45,N371HX,ATR 72-600,ATR,2022-04-08,,95
+46,N571PM,Embraer E190,Embraer,2000-08-22,2015-10-21,83
+47,N179TE,Boeing 787-9,Boeing,2008-05-21,,39
+48,N681EA,Airbus A380-800,Airbus,2013-01-16,,35
+49,N201WG,Embraer E190,Embraer,2019-08-10,,91
+50,N392OO,Airbus A350-900,Airbus,2012-02-18,,26
+51,N187PA,Boeing 747-8F,Boeing,2007-08-03,,58
+52,N496GG,Boeing 747-8F,Boeing,2000-10-03,2019-06-05,78
+53,N746QI,ATR 72-600,ATR,2001-12-12,2023-07-01,21
+54,N603VO,Boeing 737-800,Boeing,2010-05-24,,19
+55,N452MK,Airbus A321neo,Airbus,2001-06-01,,44
+56,N507DG,ATR 72-600,ATR,2020-01-24,,38
+57,N481CM,Boeing 747-8F,Boeing,2010-10-03,,47
+58,N538YI,Boeing 767-300F,Boeing,1999-05-04,2018-11-05,32
+59,N546QK,Boeing 747-8F,Boeing,2004-06-26,,4
+60,N879UM,Bombardier CRJ900,Bombardier,2015-09-07,,93
+61,N150XN,Boeing 737 MAX 8,Boeing,2012-10-25,,18
+62,N990JP,Embraer E190,Embraer,1999-09-05,2020-06-10,39
+63,N856XU,Boeing 747-8F,Boeing,2006-07-21,2028-09-22,51
+64,N271UF,Boeing 737 MAX 8,Boeing,2000-04-17,,64
+65,N325OK,Airbus A350-900,Airbus,2022-08-14,,18
+66,N297HC,Airbus A350-900,Airbus,2003-06-18,2021-06-09,73
+67,N120XN,Boeing 787-9,Boeing,2010-07-24,,68
+68,N485IK,Boeing 787-9,Boeing,2022-01-16,,36
+69,N468EV,Airbus A380-800,Airbus,2014-09-21,,28
+70,N377HM,Boeing 737 MAX 8,Boeing,2010-11-15,,56
+71,N969AE,Boeing 747-8F,Boeing,1999-07-23,,61
+72,N601AC,Airbus A380-800,Airbus,2010-09-28,,60
+73,N354ZD,Airbus A330-300,Airbus,2005-03-05,,88
+74,N945XW,Boeing 737 MAX 8,Boeing,2018-08-03,,71
+75,N140AZ,Bombardier CRJ900,Bombardier,2002-04-19,,83
+76,N411EU,Embraer E175,Embraer,2006-09-21,,98
+77,N201CJ,Boeing 737 MAX 8,Boeing,2014-10-07,,50
+78,N328ZT,Boeing 747-8F,Boeing,1998-01-18,,59
+79,N423UH,Boeing 747-8F,Boeing,2013-09-08,,71
+80,N129NW,Boeing 787-9,Boeing,2018-05-02,,3
+81,N610VU,Boeing 787-9,Boeing,2011-02-09,,30
+82,N534LH,Embraer E190,Embraer,2013-01-23,,44
+83,N530LV,Embraer E175,Embraer,2010-04-01,,38
+84,N965QC,Embraer E175,Embraer,2004-08-07,,25
+85,N576HI,Boeing 787-9,Boeing,2022-05-04,,80
+86,N724FH,Airbus A330-300,Airbus,2013-07-22,,8
+87,N249MB,Airbus A380-800,Airbus,2004-01-20,2019-12-02,24
+88,N560WK,Airbus A321neo,Airbus,2021-02-03,,22
+89,N295FU,Airbus A320neo,Airbus,2014-12-15,,5
+90,N780XM,Boeing 747-8F,Boeing,2009-06-15,2024-02-09,11
+91,N530DR,Airbus A320neo,Airbus,2022-04-13,,46
+92,N941JZ,Bombardier CRJ900,Bombardier,2011-02-02,,91
+93,N300LR,Airbus A330-300,Airbus,2012-04-11,,47
+94,N585AU,Embraer E175,Embraer,2011-04-26,,81
+95,N514BM,Bombardier CRJ900,Bombardier,1999-08-03,,8
+96,N299XC,Boeing 747-8F,Boeing,2017-06-12,,35
+97,N731BI,Airbus A320neo,Airbus,2021-12-23,,41
+98,N382JA,Boeing 767-300F,Boeing,2021-10-26,,82
+99,N124HD,Boeing 737 MAX 8,Boeing,2013-12-15,,100
+100,N908IN,Airbus A321neo,Airbus,2013-03-16,,24
+101,N921XJ,Boeing 737-800,Boeing,2020-03-20,,31
+102,N981KO,Airbus A320neo,Airbus,2009-10-03,,51
+103,N263HN,Bombardier CRJ900,Bombardier,2000-11-02,,70
+104,N264ND,Airbus A320neo,Airbus,2000-05-20,2016-07-16,91
+105,N277HE,Airbus A330-300,Airbus,2011-08-20,,87
+106,N865RY,Boeing 787-9,Boeing,2019-02-25,,38
+107,N386SI,Boeing 747-8F,Boeing,2009-05-24,2031-04-06,32
+108,N257JS,Boeing 787-9,Boeing,2004-06-03,,32
+109,N638HU,Airbus A350-900,Airbus,2023-02-21,,60
+110,N204AP,Boeing 737-800,Boeing,2005-08-12,2024-04-04,7
+
+Cirium Aviation Intelligence Mart -- Snowflake | Table: airport_master
+"Reference Domain: airport master data -- static reference table. One row per airport, used as origin/destination in airline_schedules and flight_operations."
+airport_id,airport_code,airport_name,city,country,latitude,longitude,timezone
+1,ATL,Hartsfield-Jackson Atlanta International,Atlanta,USA,33.6407,-84.4277,America/New_York
+2,PEK,Beijing Capital International,Beijing,China,40.0801,116.5846,Asia/Shanghai
+3,LAX,Los Angeles International,Los Angeles,USA,33.9416,-118.4085,America/Los_Angeles
+4,DXB,Dubai International,Dubai,UAE,25.2532,55.3657,Asia/Dubai
+5,HND,Tokyo Haneda,Tokyo,Japan,35.5494,139.7798,Asia/Tokyo
+6,ORD,O'Hare International,Chicago,USA,41.9742,-87.9073,America/Chicago
+7,LHR,London Heathrow,London,UK,51.47,-0.4543,Europe/London
+8,PVG,Shanghai Pudong International,Shanghai,China,31.1443,121.8083,Asia/Shanghai
+9,CDG,Paris Charles de Gaulle,Paris,France,49.0097,2.5479,Europe/Paris
+10,DFW,Dallas Fort Worth International,Dallas,USA,32.8998,-97.0403,America/Chicago
+11,AMS,Amsterdam Schiphol,Amsterdam,Netherlands,52.3105,4.7683,Europe/Amsterdam
+12,FRA,Frankfurt am Main,Frankfurt,Germany,50.0379,8.5622,Europe/Berlin
+13,IST,Istanbul Airport,Istanbul,Turkey,41.2753,28.7519,Europe/Istanbul
+14,CAN,Guangzhou Baiyun International,Guangzhou,China,23.3924,113.2988,Asia/Shanghai
+15,JFK,John F Kennedy International,New York,USA,40.6413,-73.7781,America/New_York
+16,SIN,Singapore Changi,Singapore,Singapore,1.3644,103.9915,Asia/Singapore
+17,DEN,Denver International,Denver,USA,39.8561,-104.6737,America/Denver
+18,ICN,Incheon International,Seoul,South Korea,37.4602,126.4407,Asia/Seoul
+19,KUL,Kuala Lumpur International,Kuala Lumpur,Malaysia,2.7456,101.7099,Asia/Kuala_Lumpur
+20,BKK,Suvarnabhumi,Bangkok,Thailand,13.69,100.7501,Asia/Bangkok
+21,MAD,Adolfo Suarez Madrid-Barajas,Madrid,Spain,40.4983,-3.5676,Europe/Madrid
+22,SFO,San Francisco International,San Francisco,USA,37.6213,-122.379,America/Los_Angeles
+23,BCN,Barcelona-El Prat,Barcelona,Spain,41.2971,2.0785,Europe/Madrid
+24,YYZ,Toronto Pearson International,Toronto,Canada,43.6777,-79.6248,America/Toronto
+25,MUC,Munich Airport,Munich,Germany,48.3538,11.7861,Europe/Berlin
+26,SYD,Sydney Kingsford Smith,Sydney,Australia,-33.9399,151.1753,Australia/Sydney
+27,GRU,Sao Paulo-Guarulhos International,Sao Paulo,Brazil,-23.4356,-46.4731,America/Sao_Paulo
+28,MEX,Mexico City International,Mexico City,Mexico,19.4363,-99.0721,America/Mexico_City
+29,MIA,Miami International,Miami,USA,25.7959,-80.287,America/New_York
+30,SEA,Seattle-Tacoma International,Seattle,USA,47.4502,-122.3088,America/Los_Angeles
+31,BOM,Chhatrapati Shivaji Maharaj International,Mumbai,India,19.0896,72.8656,Asia/Kolkata
+32,DEL,Indira Gandhi International,Delhi,India,28.5562,77.1,Asia/Kolkata
+33,JNB,OR Tambo International,Johannesburg,South Africa,-26.1392,28.246,Africa/Johannesburg
+34,CAI,Cairo International,Cairo,Egypt,30.1219,31.4056,Africa/Cairo
+35,LOS,Murtala Muhammed International,Lagos,Nigeria,6.5774,3.3212,Africa/Lagos
+36,NBO,Jomo Kenyatta International,Nairobi,Kenya,-1.3192,36.9278,Africa/Nairobi
+37,EZE,Ministro Pistarini International,Buenos Aires,Argentina,-34.8222,-58.5358,America/Argentina/Buenos_Aires
+38,SCL,Arturo Merino Benitez International,Santiago,Chile,-33.393,-70.7858,America/Santiago
+39,LIM,Jorge Chavez International,Lima,Peru,-12.0219,-77.1143,America/Lima
+40,AKL,Auckland Airport,Auckland,New Zealand,-37.0082,174.785,Pacific/Auckland
+41,GTS,GTS Regional Airport,GTS City,France,56.271718,-45.994693,UTC
+42,FOT,FOT Regional Airport,FOT City,Italy,36.874776,59.312015,UTC
+43,ADU,ADU Regional Airport,ADU City,Peru,28.713263,-54.108135,UTC
+44,BLK,BLK Regional Airport,BLK City,UK,-54.479184,179.954553,UTC
+45,BTX,BTX Regional Airport,BTX City,France,41.842965,114.779919,UTC
+46,NVL,NVL Regional Airport,NVL City,Germany,17.626724,-151.943484,UTC
+47,BZP,BZP Regional Airport,BZP City,New Zealand,0.438379,-33.058784,UTC
+48,ZMV,ZMV Regional Airport,ZMV City,New Zealand,-40.680979,12.238979,UTC
+49,UFM,UFM Regional Airport,UFM City,Italy,-8.776385,-78.01157,UTC
+50,JXS,JXS Regional Airport,JXS City,South Africa,-8.239997,-173.443255,UTC
+51,YZL,YZL Regional Airport,YZL City,France,-11.15861,-34.209561,UTC
+52,ANF,ANF Regional Airport,ANF City,India,-45.807588,-147.424313,UTC
+53,SLO,SLO Regional Airport,SLO City,Germany,-43.753113,-161.389655,UTC
+54,EUZ,EUZ Regional Airport,EUZ City,Egypt,-48.871111,43.990054,UTC
+55,LXQ,LXQ Regional Airport,LXQ City,Germany,-41.764147,-78.013798,UTC
+56,QFC,QFC Regional Airport,QFC City,Mexico,-12.033156,91.280094,UTC
+57,ZZG,ZZG Regional Airport,ZZG City,Nigeria,-44.168706,159.507255,UTC
+58,PKB,PKB Regional Airport,PKB City,Peru,55.770977,-40.357734,UTC
+59,WTW,WTW Regional Airport,WTW City,Germany,20.040553,128.371516,UTC
+60,TMT,TMT Regional Airport,TMT City,France,43.648463,-114.132404,UTC
+61,GBM,GBM Regional Airport,GBM City,Australia,-40.440138,-50.685239,UTC
+62,EHX,EHX Regional Airport,EHX City,France,-54.862621,22.443577,UTC
+63,YVB,YVB Regional Airport,YVB City,Kenya,-45.283623,35.827117,UTC
+64,RUY,RUY Regional Airport,RUY City,Nigeria,21.128482,-69.043816,UTC
+65,HNM,HNM Regional Airport,HNM City,South Africa,-4.151326,-22.193066,UTC
+66,AAT,AAT Regional Airport,AAT City,Japan,-1.840858,-19.145206,UTC
+67,TYO,TYO Regional Airport,TYO City,Germany,41.316169,-35.876755,UTC
+68,CEL,CEL Regional Airport,CEL City,India,-14.333461,108.821521,UTC
+69,QQV,QQV Regional Airport,QQV City,Canada,-54.918546,-133.102452,UTC
+70,XKY,XKY Regional Airport,XKY City,Australia,-50.004006,90.741198,UTC
+71,MUZ,MUZ Regional Airport,MUZ City,UK,-56.767939,-156.102958,UTC
+72,TXW,TXW Regional Airport,TXW City,Mexico,-35.786587,173.422113,UTC
+73,PJZ,PJZ Regional Airport,PJZ City,Germany,25.766745,79.588547,UTC
+74,HCL,HCL Regional Airport,HCL City,Peru,34.522471,-122.843718,UTC
+75,TIO,TIO Regional Airport,TIO City,UK,-28.229825,167.158007,UTC
+76,PGS,PGS Regional Airport,PGS City,Italy,16.98328,-94.536296,UTC
+77,LBG,LBG Regional Airport,LBG City,Germany,-9.566819,49.165841,UTC
+78,IVK,IVK Regional Airport,IVK City,Egypt,-38.907244,102.552953,UTC
+79,DYQ,DYQ Regional Airport,DYQ City,Canada,19.539834,-50.479514,UTC
+80,ORQ,ORQ Regional Airport,ORQ City,Chile,26.091089,142.596384,UTC
+81,IRU,IRU Regional Airport,IRU City,Egypt,32.24039,-46.27216,UTC
+82,MLS,MLS Regional Airport,MLS City,UK,-14.968577,95.270109,UTC
+83,OHF,OHF Regional Airport,OHF City,Peru,32.94934,-162.615076,UTC
+84,QIJ,QIJ Regional Airport,QIJ City,Chile,56.057403,142.460273,UTC
+85,XAX,XAX Regional Airport,XAX City,Canada,-32.295311,-75.250217,UTC
+86,UNN,UNN Regional Airport,UNN City,Australia,-14.487626,-162.800509,UTC
+87,PHT,PHT Regional Airport,PHT City,Canada,-57.21381,-179.058422,UTC
+88,LJD,LJD Regional Airport,LJD City,Australia,-15.356056,-99.266774,UTC
+89,SJS,SJS Regional Airport,SJS City,UK,-34.476954,44.614641,UTC
+90,PFE,PFE Regional Airport,PFE City,USA,57.073864,-92.308224,UTC
+91,EOD,EOD Regional Airport,EOD City,Brazil,19.776262,133.662816,UTC
+92,ZIM,ZIM Regional Airport,ZIM City,Italy,60.891925,-159.792997,UTC
+93,RLT,RLT Regional Airport,RLT City,Chile,-4.53072,157.376563,UTC
+94,XPH,XPH Regional Airport,XPH City,Germany,52.937934,-164.159286,UTC
+95,RAM,RAM Regional Airport,RAM City,Germany,-30.291399,-158.983495,UTC
+96,YDA,YDA Regional Airport,YDA City,Peru,8.86537,158.731419,UTC
+97,ENG,ENG Regional Airport,ENG City,Australia,16.010371,2.501357,UTC
+98,UNT,UNT Regional Airport,UNT City,Germany,3.572002,-157.043812,UTC
+99,UBX,UBX Regional Airport,UBX City,Japan,29.424827,-177.714215,UTC
+100,NXO,NXO Regional Airport,NXO City,Brazil,32.719368,-17.104594,UTC
+
+Cirium Aviation Intelligence Mart -- Snowflake | Table: customer_master
+Customer Domain: customer master data. One row per subscribing customer. active_flag identifies currently active accounts.
+customer_id,customer_name,customer_type,country,active_flag
+1,Pacific Airport Authority Group,Corporate Travel,Canada,TRUE
+2,Anchor Government Inc.,Government,New Zealand,TRUE
+3,Meridian Media/Press Group,Government,France,TRUE
+4,Vertex Airline LLC,Government,Spain,TRUE
+5,Pacific OTA Group,Corporate Travel,Egypt,TRUE
+6,Pacific Leasing Company Co.,Research Institute,Japan,TRUE
+7,Cornerstone Airline Inc.,Leasing Company,Spain,TRUE
+8,Atlantic Corporate Travel Partners,Insurance,Chile,FALSE
+9,Anchor OTA LLC,Airline,USA,TRUE
+10,Prime OTA Group,OTA,USA,FALSE
+11,United Airline Inc.,Airline,Brazil,TRUE
+12,Sterling MRO Provider LLC,Media/Press,Brazil,TRUE
+13,Sterling Leasing Company Inc.,Corporate Travel,France,TRUE
+14,Global Airline Inc.,Government,Japan,TRUE
+15,National Corporate Travel Group,MRO Provider,Kenya,TRUE
+16,Global MRO Provider Group,Government,Canada,TRUE
+17,Summit MRO Provider Co.,Media/Press,Japan,TRUE
+18,Prime Airline Partners,Airline,India,TRUE
+19,National MRO Provider Partners,Airline,New Zealand,TRUE
+20,Cornerstone Airport Authority Co.,Government,Germany,TRUE
+21,Vertex Corporate Travel Group,Airline,USA,TRUE
+22,National Research Institute LLC,Research Institute,Chile,TRUE
+23,Beacon Media/Press Group,Insurance,Germany,TRUE
+24,Pacific Corporate Travel Partners,OTA,Mexico,TRUE
+25,Sterling Airport Authority Partners,Media/Press,Mexico,TRUE
+26,Summit Airport Authority Partners,Leasing Company,Brazil,TRUE
+27,Meridian Airline Group,Corporate Travel,Nigeria,TRUE
+28,Anchor Media/Press Co.,OTA,Egypt,TRUE
+29,Meridian Corporate Travel Partners,OTA,New Zealand,TRUE
+30,Cornerstone Insurance Inc.,MRO Provider,Chile,TRUE
+31,United Research Institute Co.,MRO Provider,Germany,TRUE
+32,Cornerstone Government Co.,Corporate Travel,UK,TRUE
+33,Meridian Corporate Travel Co.,Corporate Travel,Italy,TRUE
+34,Cornerstone Insurance LLC,OTA,Spain,TRUE
+35,Prime Media/Press Group,OTA,Spain,TRUE
+36,Pacific Government Inc.,OTA,Mexico,TRUE
+37,United OTA Group,Government,India,TRUE
+38,National Airport Authority Group,Corporate Travel,Egypt,TRUE
+39,Global Leasing Company Partners,Corporate Travel,Australia,TRUE
+40,Atlantic Research Institute Inc.,OTA,Italy,TRUE
+41,Horizon Airline LLC,Leasing Company,Chile,TRUE
+42,Meridian Leasing Company LLC,Insurance,Spain,TRUE
+43,Meridian Airport Authority Partners,Leasing Company,Kenya,TRUE
+44,Cornerstone Airport Authority Partners,Corporate Travel,Egypt,TRUE
+45,Meridian OTA Group,Leasing Company,Japan,TRUE
+46,Prime Leasing Company Co.,OTA,Kenya,TRUE
+47,Horizon Research Institute Inc.,Airline,Italy,TRUE
+48,United Corporate Travel Co.,MRO Provider,Mexico,TRUE
+49,Apex Media/Press LLC,Research Institute,Australia,FALSE
+50,Sterling MRO Provider Co.,MRO Provider,India,TRUE
+51,Apex Corporate Travel LLC,Leasing Company,Australia,TRUE
+52,National Insurance Group,Airline,Italy,TRUE
+53,Horizon Airline Inc.,Airport Authority,India,TRUE
+54,Meridian MRO Provider Co.,Government,Mexico,TRUE
+55,Cornerstone Leasing Company Co.,Corporate Travel,Egypt,TRUE
+56,United OTA Inc.,Corporate Travel,Japan,TRUE
+57,Cornerstone Corporate Travel LLC,MRO Provider,India,TRUE
+58,Atlantic Media/Press LLC,Research Institute,South Africa,TRUE
+59,Pacific Government Partners,Government,India,TRUE
+60,Apex Airline Group,MRO Provider,Spain,TRUE
+61,Summit Research Institute Partners,Leasing Company,Peru,TRUE
+62,Meridian MRO Provider LLC,Government,Egypt,FALSE
+63,Beacon Insurance Group,OTA,Australia,TRUE
+64,Meridian Insurance Inc.,Airline,France,TRUE
+65,Meridian Government Group,Insurance,Mexico,TRUE
+66,Beacon Corporate Travel LLC,Research Institute,South Africa,TRUE
+67,United Insurance Co.,Airport Authority,New Zealand,TRUE
+68,Beacon Government LLC,Research Institute,France,TRUE
+69,Cornerstone Research Institute Inc.,Media/Press,Mexico,TRUE
+70,Pacific OTA Partners,Research Institute,New Zealand,FALSE
+71,Apex OTA Partners,Corporate Travel,Japan,TRUE
+72,Prime Airline LLC,MRO Provider,China,TRUE
+73,Apex Government Partners,MRO Provider,India,TRUE
+74,Meridian Airport Authority LLC,MRO Provider,USA,FALSE
+75,Global MRO Provider Inc.,Media/Press,Japan,TRUE
+76,Anchor OTA Inc.,Corporate Travel,India,TRUE
+77,Summit Airport Authority Group,MRO Provider,Japan,TRUE
+78,Horizon MRO Provider Partners,Government,New Zealand,FALSE
+79,Atlantic Government Group,Research Institute,Egypt,TRUE
+80,Atlantic Media/Press Group,Corporate Travel,Japan,TRUE
+81,Summit Corporate Travel Group,Government,UK,TRUE
+82,Meridian Airport Authority Inc.,Leasing Company,New Zealand,TRUE
+83,Vertex Insurance Inc.,Leasing Company,Nigeria,TRUE
+84,Global Corporate Travel Partners,Insurance,Canada,TRUE
+85,Horizon Insurance LLC,Insurance,Brazil,TRUE
+86,Meridian Research Institute LLC,Airport Authority,Germany,TRUE
+87,Horizon Airport Authority Inc.,MRO Provider,UK,TRUE
+88,Vertex Government Group,OTA,India,FALSE
+89,Global Leasing Company Co.,Insurance,Canada,TRUE
+90,Vertex Airline Inc.,Leasing Company,Chile,TRUE
+91,Prime OTA Partners,Leasing Company,New Zealand,TRUE
+92,Pacific Airport Authority LLC,Research Institute,USA,TRUE
+93,Prime Corporate Travel Partners,OTA,Canada,TRUE
+94,Cornerstone OTA Inc.,Government,New Zealand,TRUE
+95,Apex Government Inc.,Airline,USA,FALSE
+96,Anchor Insurance Inc.,Leasing Company,Nigeria,TRUE
+97,Prime Airline Group,MRO Provider,Chile,TRUE
+98,Apex OTA LLC,Airport Authority,South Africa,TRUE
+99,United Leasing Company Partners,Leasing Company,China,TRUE
+100,Sterling Insurance Group,Government,Italy,FALSE
+
+Cirium Aviation Intelligence Mart -- Snowflake | Table: data_products
+Customer Domain: catalog of subscribable data products. One row per published data product/API/feed offered to customers via customer_subscriptions.
+data_product_id,product_name,domain,delivery_type,description,active_flag
+1,Safety & Compliance Streaming,Safety & Compliance,Streaming,Streaming delivering curated safety & compliance metrics for downstream analytics consumers.,TRUE
+2,Flight Operations Batch Feed,Flight Operations,Batch Feed,Batch Feed delivering curated flight operations metrics for downstream analytics consumers.,TRUE
+3,Baggage Analytics Report,Baggage Analytics,Report,Report delivering curated baggage analytics metrics for downstream analytics consumers.,TRUE
+4,Delay Analytics Dashboard,Delay Analytics,Dashboard,Dashboard delivering curated delay analytics metrics for downstream analytics consumers.,TRUE
+5,Crew Scheduling Report,Crew Scheduling,Report,Report delivering curated crew scheduling metrics for downstream analytics consumers.,TRUE
+6,Delay Analytics Dashboard v2,Delay Analytics,Dashboard,Dashboard delivering curated delay analytics metrics for downstream analytics consumers.,TRUE
+7,Flight Operations Streaming,Flight Operations,Streaming,Streaming delivering curated flight operations metrics for downstream analytics consumers.,TRUE
+8,Crew Scheduling Batch Feed,Crew Scheduling,Batch Feed,Batch Feed delivering curated crew scheduling metrics for downstream analytics consumers.,TRUE
+9,Flight Operations Streaming v2,Flight Operations,Streaming,Streaming delivering curated flight operations metrics for downstream analytics consumers.,TRUE
+10,Safety & Compliance Batch Feed,Safety & Compliance,Batch Feed,Batch Feed delivering curated safety & compliance metrics for downstream analytics consumers.,TRUE
+11,Fuel Efficiency Data Share,Fuel Efficiency,Data Share,Data Share delivering curated fuel efficiency metrics for downstream analytics consumers.,TRUE
+12,Customer 360 Streaming,Customer 360,Streaming,Streaming delivering curated customer 360 metrics for downstream analytics consumers.,TRUE
+13,Fuel Efficiency Report,Fuel Efficiency,Report,Report delivering curated fuel efficiency metrics for downstream analytics consumers.,TRUE
+14,Crew Scheduling Batch Feed v2,Crew Scheduling,Batch Feed,Batch Feed delivering curated crew scheduling metrics for downstream analytics consumers.,TRUE
+15,Delay Analytics Streaming,Delay Analytics,Streaming,Streaming delivering curated delay analytics metrics for downstream analytics consumers.,TRUE
+16,Crew Scheduling Dashboard,Crew Scheduling,Dashboard,Dashboard delivering curated crew scheduling metrics for downstream analytics consumers.,TRUE
+17,Baggage Analytics Report v2,Baggage Analytics,Report,Report delivering curated baggage analytics metrics for downstream analytics consumers.,TRUE
+18,Crew Scheduling Dashboard v2,Crew Scheduling,Dashboard,Dashboard delivering curated crew scheduling metrics for downstream analytics consumers.,TRUE
+19,Fuel Efficiency Streaming,Fuel Efficiency,Streaming,Streaming delivering curated fuel efficiency metrics for downstream analytics consumers.,TRUE
+20,Delay Analytics Dashboard v3,Delay Analytics,Dashboard,Dashboard delivering curated delay analytics metrics for downstream analytics consumers.,TRUE
+21,Baggage Analytics Report v3,Baggage Analytics,Report,Report delivering curated baggage analytics metrics for downstream analytics consumers.,TRUE
+22,Fuel Efficiency Report v2,Fuel Efficiency,Report,Report delivering curated fuel efficiency metrics for downstream analytics consumers.,TRUE
+23,Delay Analytics Batch Feed,Delay Analytics,Batch Feed,Batch Feed delivering curated delay analytics metrics for downstream analytics consumers.,FALSE
+24,Baggage Analytics Streaming,Baggage Analytics,Streaming,Streaming delivering curated baggage analytics metrics for downstream analytics consumers.,TRUE
+25,Weather Impact Dashboard,Weather Impact,Dashboard,Dashboard delivering curated weather impact metrics for downstream analytics consumers.,TRUE
+26,Aircraft Utilization Batch Feed,Aircraft Utilization,Batch Feed,Batch Feed delivering curated aircraft utilization metrics for downstream analytics consumers.,FALSE
+27,Customer 360 Streaming v2,Customer 360,Streaming,Streaming delivering curated customer 360 metrics for downstream analytics consumers.,TRUE
+28,Weather Impact Data Share,Weather Impact,Data Share,Data Share delivering curated weather impact metrics for downstream analytics consumers.,TRUE
+29,Route Performance Batch Feed,Route Performance,Batch Feed,Batch Feed delivering curated route performance metrics for downstream analytics consumers.,TRUE
+30,Flight Operations Streaming v3,Flight Operations,Streaming,Streaming delivering curated flight operations metrics for downstream analytics consumers.,TRUE
+31,Safety & Compliance API,Safety & Compliance,API,API delivering curated safety & compliance metrics for downstream analytics consumers.,FALSE
+32,Delay Analytics Report,Delay Analytics,Report,Report delivering curated delay analytics metrics for downstream analytics consumers.,TRUE
+33,Safety & Compliance Batch Feed v2,Safety & Compliance,Batch Feed,Batch Feed delivering curated safety & compliance metrics for downstream analytics consumers.,TRUE
+34,Baggage Analytics Dashboard,Baggage Analytics,Dashboard,Dashboard delivering curated baggage analytics metrics for downstream analytics consumers.,FALSE
+35,Customer 360 Report,Customer 360,Report,Report delivering curated customer 360 metrics for downstream analytics consumers.,TRUE
+36,Aircraft Utilization Streaming,Aircraft Utilization,Streaming,Streaming delivering curated aircraft utilization metrics for downstream analytics consumers.,TRUE
+37,Weather Impact Batch Feed,Weather Impact,Batch Feed,Batch Feed delivering curated weather impact metrics for downstream analytics consumers.,TRUE
+38,Crew Scheduling API,Crew Scheduling,API,API delivering curated crew scheduling metrics for downstream analytics consumers.,FALSE
+39,Flight Operations Report,Flight Operations,Report,Report delivering curated flight operations metrics for downstream analytics consumers.,TRUE
+40,Customer 360 Dashboard,Customer 360,Dashboard,Dashboard delivering curated customer 360 metrics for downstream analytics consumers.,TRUE
+41,Route Performance Report,Route Performance,Report,Report delivering curated route performance metrics for downstream analytics consumers.,TRUE
+42,Route Performance Data Share,Route Performance,Data Share,Data Share delivering curated route performance metrics for downstream analytics consumers.,TRUE
+43,Baggage Analytics Streaming v2,Baggage Analytics,Streaming,Streaming delivering curated baggage analytics metrics for downstream analytics consumers.,TRUE
+44,Route Performance Data Share v2,Route Performance,Data Share,Data Share delivering curated route performance metrics for downstream analytics consumers.,TRUE
+45,Aircraft Utilization Dashboard,Aircraft Utilization,Dashboard,Dashboard delivering curated aircraft utilization metrics for downstream analytics consumers.,TRUE
+46,Weather Impact Batch Feed v2,Weather Impact,Batch Feed,Batch Feed delivering curated weather impact metrics for downstream analytics consumers.,TRUE
+47,Delay Analytics Batch Feed v2,Delay Analytics,Batch Feed,Batch Feed delivering curated delay analytics metrics for downstream analytics consumers.,FALSE
+48,Baggage Analytics Streaming v3,Baggage Analytics,Streaming,Streaming delivering curated baggage analytics metrics for downstream analytics consumers.,FALSE
+49,Fuel Efficiency API,Fuel Efficiency,API,API delivering curated fuel efficiency metrics for downstream analytics consumers.,TRUE
+50,Flight Operations Streaming v4,Flight Operations,Streaming,Streaming delivering curated flight operations metrics for downstream analytics consumers.,TRUE
+51,Customer 360 API,Customer 360,API,API delivering curated customer 360 metrics for downstream analytics consumers.,TRUE
+52,Weather Impact API,Weather Impact,API,API delivering curated weather impact metrics for downstream analytics consumers.,TRUE
+53,Baggage Analytics Report v4,Baggage Analytics,Report,Report delivering curated baggage analytics metrics for downstream analytics consumers.,TRUE
+54,Route Performance Dashboard,Route Performance,Dashboard,Dashboard delivering curated route performance metrics for downstream analytics consumers.,TRUE
+55,Baggage Analytics Dashboard v2,Baggage Analytics,Dashboard,Dashboard delivering curated baggage analytics metrics for downstream analytics consumers.,TRUE
+56,Customer 360 Dashboard v2,Customer 360,Dashboard,Dashboard delivering curated customer 360 metrics for downstream analytics consumers.,TRUE
+57,Delay Analytics Batch Feed v3,Delay Analytics,Batch Feed,Batch Feed delivering curated delay analytics metrics for downstream analytics consumers.,TRUE
+58,Flight Operations Dashboard,Flight Operations,Dashboard,Dashboard delivering curated flight operations metrics for downstream analytics consumers.,TRUE
+59,Delay Analytics API,Delay Analytics,API,API delivering curated delay analytics metrics for downstream analytics consumers.,TRUE
+60,Delay Analytics API v2,Delay Analytics,API,API delivering curated delay analytics metrics for downstream analytics consumers.,TRUE
+61,Weather Impact Data Share v2,Weather Impact,Data Share,Data Share delivering curated weather impact metrics for downstream analytics consumers.,TRUE
+62,Customer 360 API v2,Customer 360,API,API delivering curated customer 360 metrics for downstream analytics consumers.,TRUE
+63,Crew Scheduling API v2,Crew Scheduling,API,API delivering curated crew scheduling metrics for downstream analytics consumers.,TRUE
+64,Customer 360 Streaming v3,Customer 360,Streaming,Streaming delivering curated customer 360 metrics for downstream analytics consumers.,TRUE
+65,Delay Analytics Dashboard v4,Delay Analytics,Dashboard,Dashboard delivering curated delay analytics metrics for downstream analytics consumers.,TRUE
+66,Weather Impact Batch Feed v3,Weather Impact,Batch Feed,Batch Feed delivering curated weather impact metrics for downstream analytics consumers.,TRUE
+67,Flight Operations Batch Feed v2,Flight Operations,Batch Feed,Batch Feed delivering curated flight operations metrics for downstream analytics consumers.,TRUE
+68,Fuel Efficiency Batch Feed,Fuel Efficiency,Batch Feed,Batch Feed delivering curated fuel efficiency metrics for downstream analytics consumers.,TRUE
+69,Aircraft Utilization Streaming v2,Aircraft Utilization,Streaming,Streaming delivering curated aircraft utilization metrics for downstream analytics consumers.,TRUE
+70,Delay Analytics Batch Feed v4,Delay Analytics,Batch Feed,Batch Feed delivering curated delay analytics metrics for downstream analytics consumers.,FALSE
+71,Safety & Compliance Streaming v2,Safety & Compliance,Streaming,Streaming delivering curated safety & compliance metrics for downstream analytics consumers.,TRUE
+72,Aircraft Utilization Streaming v3,Aircraft Utilization,Streaming,Streaming delivering curated aircraft utilization metrics for downstream analytics consumers.,TRUE
+73,Weather Impact Dashboard v2,Weather Impact,Dashboard,Dashboard delivering curated weather impact metrics for downstream analytics consumers.,TRUE
+74,Route Performance Batch Feed v2,Route Performance,Batch Feed,Batch Feed delivering curated route performance metrics for downstream analytics consumers.,TRUE
+75,Flight Operations Data Share,Flight Operations,Data Share,Data Share delivering curated flight operations metrics for downstream analytics consumers.,TRUE
+76,Delay Analytics Report v2,Delay Analytics,Report,Report delivering curated delay analytics metrics for downstream analytics consumers.,TRUE
+77,Baggage Analytics API,Baggage Analytics,API,API delivering curated baggage analytics metrics for downstream analytics consumers.,TRUE
+78,Delay Analytics Streaming v2,Delay Analytics,Streaming,Streaming delivering curated delay analytics metrics for downstream analytics consumers.,TRUE
+79,Baggage Analytics Batch Feed,Baggage Analytics,Batch Feed,Batch Feed delivering curated baggage analytics metrics for downstream analytics consumers.,TRUE
+80,Route Performance Dashboard v2,Route Performance,Dashboard,Dashboard delivering curated route performance metrics for downstream analytics consumers.,TRUE
+81,Aircraft Utilization API,Aircraft Utilization,API,API delivering curated aircraft utilization metrics for downstream analytics consumers.,TRUE
+82,Baggage Analytics Batch Feed v2,Baggage Analytics,Batch Feed,Batch Feed delivering curated baggage analytics metrics for downstream analytics consumers.,TRUE
+83,Flight Operations Dashboard v2,Flight Operations,Dashboard,Dashboard delivering curated flight operations metrics for downstream analytics consumers.,TRUE
+84,Weather Impact Report,Weather Impact,Report,Report delivering curated weather impact metrics for downstream analytics consumers.,TRUE
+85,Flight Operations Report v2,Flight Operations,Report,Report delivering curated flight operations metrics for downstream analytics consumers.,TRUE
+86,Weather Impact Dashboard v3,Weather Impact,Dashboard,Dashboard delivering curated weather impact metrics for downstream analytics consumers.,FALSE
+87,Crew Scheduling Batch Feed v3,Crew Scheduling,Batch Feed,Batch Feed delivering curated crew scheduling metrics for downstream analytics consumers.,TRUE
+88,Aircraft Utilization Batch Feed v2,Aircraft Utilization,Batch Feed,Batch Feed delivering curated aircraft utilization metrics for downstream analytics consumers.,TRUE
+89,Fuel Efficiency Batch Feed v2,Fuel Efficiency,Batch Feed,Batch Feed delivering curated fuel efficiency metrics for downstream analytics consumers.,TRUE
+90,Delay Analytics Report v3,Delay Analytics,Report,Report delivering curated delay analytics metrics for downstream analytics consumers.,FALSE
+91,Route Performance Report v2,Route Performance,Report,Report delivering curated route performance metrics for downstream analytics consumers.,TRUE
+92,Baggage Analytics Batch Feed v3,Baggage Analytics,Batch Feed,Batch Feed delivering curated baggage analytics metrics for downstream analytics consumers.,TRUE
+93,Safety & Compliance Data Share,Safety & Compliance,Data Share,Data Share delivering curated safety & compliance metrics for downstream analytics consumers.,TRUE
+94,Delay Analytics Report v4,Delay Analytics,Report,Report delivering curated delay analytics metrics for downstream analytics consumers.,TRUE
+95,Flight Operations API,Flight Operations,API,API delivering curated flight operations metrics for downstream analytics consumers.,TRUE
+96,Fuel Efficiency Dashboard,Fuel Efficiency,Dashboard,Dashboard delivering curated fuel efficiency metrics for downstream analytics consumers.,TRUE
+97,Flight Operations Report v3,Flight Operations,Report,Report delivering curated flight operations metrics for downstream analytics consumers.,TRUE
+98,Weather Impact Streaming,Weather Impact,Streaming,Streaming delivering curated weather impact metrics for downstream analytics consumers.,TRUE
+99,Customer 360 API v3,Customer 360,API,API delivering curated customer 360 metrics for downstream analytics consumers.,FALSE
+100,Customer 360 Batch Feed,Customer 360,Batch Feed,Batch Feed delivering curated customer 360 metrics for downstream analytics consumers.,TRUE
+
+Cirium Aviation Intelligence Mart -- Snowflake | Table: customer_subscriptions
+"Customer Domain: customer subscription entitlements to data products. PK column is spelled 'suscription_id' verbatim, matching the source ER diagram (see Model 2 DDL Assumption #4)."
+suscription_id,customer_id,data_product_id,start_date,end_date,tier,status
+1,73,47,2022-09-30,2023-05-08,Basic,Cancelled
+2,74,77,2022-06-17,,Basic,Paused
+3,67,10,2022-12-31,2024-04-30,Basic,Expired
+4,100,92,2023-01-01,2023-12-25,Enterprise,Cancelled
+5,38,14,2023-08-14,,Enterprise,Active
+6,68,69,2023-04-03,2023-05-29,Standard,Expired
+7,29,80,2022-01-22,2022-05-22,Standard,Cancelled
+8,40,33,2022-06-21,,Basic,Active
+9,90,95,2022-01-20,,Standard,Active
+10,77,82,2022-09-25,,Enterprise,Active
+11,14,45,2023-06-20,2024-10-16,Basic,Cancelled
+12,35,16,2024-01-05,2024-03-21,Enterprise,Cancelled
+13,98,36,2023-05-21,2024-11-13,Basic,Expired
+14,52,18,2022-05-05,,Standard,Active
+15,86,74,2024-05-31,2024-11-27,Enterprise,Cancelled
+16,22,3,2024-02-04,,Enterprise,Trial
+17,77,78,2023-12-12,,Basic,Trial
+18,100,47,2023-02-10,,Premium,Active
+19,92,56,2023-02-15,2024-02-23,Premium,Cancelled
+20,72,7,2024-04-14,,Premium,Trial
+21,32,55,2023-06-14,2024-07-09,Basic,Cancelled
+22,68,24,2023-01-09,,Basic,Active
+23,26,65,2022-11-29,,Basic,Trial
+24,51,100,2022-08-19,2023-11-22,Enterprise,Cancelled
+25,6,5,2023-10-11,,Premium,Active
+26,81,70,2023-11-26,2024-09-30,Basic,Expired
+27,33,16,2023-09-29,,Basic,Active
+28,37,15,2023-03-21,2023-05-30,Premium,Cancelled
+29,8,77,2022-12-22,2023-05-24,Premium,Cancelled
+30,76,69,2022-03-28,,Standard,Trial
+31,66,17,2023-03-27,,Premium,Active
+32,36,32,2023-02-21,2024-01-12,Basic,Expired
+33,59,79,2024-01-29,2024-12-18,Standard,Expired
+34,26,71,2023-10-28,,Premium,Trial
+35,79,62,2023-04-17,2024-03-22,Enterprise,Expired
+36,4,32,2024-04-18,,Premium,Paused
+37,70,50,2022-08-15,2024-02-20,Enterprise,Cancelled
+38,21,31,2022-01-13,,Premium,Paused
+39,63,35,2023-07-25,,Premium,Paused
+40,8,99,2024-06-18,2025-05-16,Basic,Cancelled
+41,78,45,2022-06-12,2022-09-18,Enterprise,Expired
+42,67,50,2023-11-05,,Enterprise,Active
+43,67,29,2022-12-29,,Standard,Active
+44,86,46,2023-03-03,,Standard,Paused
+45,79,36,2023-11-23,2025-09-14,Basic,Cancelled
+46,35,81,2024-01-27,,Standard,Trial
+47,1,53,2023-02-27,,Basic,Active
+48,74,20,2023-05-25,,Enterprise,Trial
+49,80,78,2024-05-20,,Basic,Paused
+50,89,59,2023-01-24,,Premium,Trial
+51,38,46,2024-01-11,,Enterprise,Paused
+52,50,83,2023-06-23,2025-03-23,Premium,Expired
+53,49,57,2022-01-07,,Premium,Trial
+54,19,56,2022-07-08,2023-06-14,Enterprise,Expired
+55,43,42,2023-08-19,2023-12-17,Standard,Cancelled
+56,2,4,2022-11-30,2024-03-10,Basic,Cancelled
+57,39,69,2022-09-20,2024-03-12,Premium,Expired
+58,67,67,2023-07-06,2024-10-25,Enterprise,Expired
+59,46,6,2023-02-03,,Premium,Trial
+60,87,9,2023-04-09,,Standard,Active
+61,48,65,2022-04-12,,Enterprise,Trial
+62,20,25,2023-10-27,2025-07-05,Enterprise,Expired
+63,57,99,2023-05-14,,Premium,Trial
+64,22,47,2023-12-10,2024-04-12,Premium,Expired
+65,40,66,2023-01-11,,Standard,Active
+66,89,44,2022-04-24,,Enterprise,Paused
+67,38,66,2023-10-09,2025-04-27,Standard,Cancelled
+68,24,8,2023-06-02,2024-08-27,Basic,Cancelled
+69,82,93,2022-12-28,2024-11-03,Basic,Expired
+70,2,1,2023-12-10,,Premium,Trial
+71,39,51,2023-12-29,2024-02-01,Basic,Expired
+72,86,4,2023-08-24,,Standard,Active
+73,99,71,2022-06-29,,Premium,Trial
+74,19,74,2024-06-11,2025-12-19,Standard,Expired
+75,19,21,2023-02-25,2023-07-29,Basic,Expired
+76,10,22,2022-01-30,,Enterprise,Active
+77,79,56,2024-04-22,,Basic,Trial
+78,88,99,2023-10-28,,Premium,Active
+79,36,22,2022-05-28,2023-06-24,Basic,Cancelled
+80,75,9,2022-10-01,,Premium,Active
+81,80,50,2022-07-16,,Basic,Trial
+82,75,98,2022-02-25,2023-05-06,Basic,Cancelled
+83,80,31,2023-03-27,,Standard,Active
+84,21,76,2022-08-17,,Standard,Active
+85,59,39,2022-11-19,,Enterprise,Active
+86,64,9,2023-09-10,,Standard,Paused
+87,87,92,2023-11-25,,Standard,Trial
+88,52,92,2023-02-28,,Enterprise,Paused
+89,23,22,2022-01-23,2022-05-22,Premium,Cancelled
+90,38,51,2023-01-24,2023-03-02,Premium,Cancelled
+91,69,50,2022-04-28,,Premium,Paused
+92,16,55,2023-02-17,,Premium,Active
+93,25,60,2023-07-22,2024-09-20,Premium,Cancelled
+94,5,36,2022-12-19,2024-04-08,Basic,Cancelled
+95,91,17,2022-12-16,2023-09-19,Basic,Cancelled
+96,70,17,2022-07-21,,Enterprise,Paused
+97,48,46,2023-04-24,2023-11-03,Standard,Cancelled
+98,49,81,2024-01-10,,Standard,Trial
+99,65,27,2022-11-01,,Standard,Trial
+100,87,17,2024-05-28,,Premium,Trial
+101,76,48,2023-09-03,,Standard,Trial
+102,28,17,2023-02-18,2024-08-23,Basic,Expired
+103,70,35,2023-11-26,2024-03-28,Enterprise,Expired
+104,40,2,2022-01-30,2022-07-27,Enterprise,Expired
+105,89,23,2023-12-29,,Standard,Active
+106,9,72,2022-11-25,2023-04-15,Premium,Cancelled
+107,25,9,2024-04-04,2025-03-04,Premium,Expired
+108,17,92,2022-04-01,2023-02-20,Enterprise,Cancelled
+109,52,60,2022-10-17,,Standard,Paused
+110,47,87,2022-10-11,2022-12-10,Premium,Cancelled
+
+Cirium Aviation Intelligence Mart -- Snowflake | Table: airline_schedules
+"Schedule Domain: future/planned flight schedules published by airlines. Grain is one row per published schedule version per airline/route/flight number. aircraft_type is descriptive text, not an FK (Assumption #5)."
+schedule_id,airline_id,origin_airport_id,destination_airport_id,flight_number,scheduled_departure,scheduled_arrival,aircraft_type,effective_date,expiration_date,schedule_version
+1,53,4,85,1700,2025-12-27 07:45:00,2025-12-27 13:40:46,Boeing 777-300ER,2025-12-27,2026-11-18,3
+2,15,35,78,2754,2026-01-11 22:00:00,2026-01-12 04:39:54,Airbus A321neo,2026-01-11,2026-08-01,2
+3,97,39,20,3043,2025-07-14 17:30:00,2025-07-15 03:18:44,Airbus A380-800,2025-07-14,2025-11-01,2
+4,73,64,92,1932,2025-09-24 13:30:00,2025-09-25 03:35:58,ATR 72-600,2025-09-24,2026-05-02,3
+5,6,75,78,5319,2025-12-23 07:00:00,2025-12-23 08:31:11,Boeing 787-9,2025-12-23,2026-04-16,3
+6,96,12,54,1573,2025-12-22 23:15:00,2025-12-23 04:11:10,Airbus A320neo,2025-12-22,2026-10-09,4
+7,57,44,89,3474,2025-09-15 16:00:00,2025-09-16 02:28:20,Airbus A321neo,2025-09-15,2026-08-02,2
+8,63,98,25,3966,2025-01-23 05:15:00,2025-01-23 19:49:18,Airbus A350-900,2025-01-23,2025-09-03,3
+9,32,8,22,5188,2025-07-03 13:00:00,2025-07-03 16:49:11,Boeing 777-300ER,2025-07-03,2026-03-27,2
+10,88,91,63,7391,2025-12-10 07:15:00,2025-12-10 08:19:56,Boeing 777-300ER,2025-12-10,2026-11-12,3
+11,90,39,18,2032,2025-12-29 18:15:00,2025-12-29 23:55:12,Airbus A350-900,2025-12-29,2026-06-09,4
+12,98,22,87,6753,2025-12-08 19:45:00,2025-12-09 08:30:10,ATR 72-600,2025-12-08,2026-05-26,2
+13,15,89,38,4701,2025-01-07 15:15:00,2025-01-07 16:51:27,Boeing 747-8F,2025-01-07,2025-10-08,2
+14,15,90,40,9425,2025-08-18 05:30:00,2025-08-18 12:43:51,Airbus A320neo,2025-08-18,2026-01-12,3
+15,22,72,10,5534,2025-01-24 14:45:00,2025-01-24 16:55:32,Embraer E175,2025-01-24,2025-04-29,3
+16,14,83,63,1590,2025-08-11 06:30:00,2025-08-11 07:36:58,Embraer E190,2025-08-11,2026-07-17,3
+17,81,79,94,553,2025-12-01 20:15:00,2025-12-01 22:20:38,Boeing 737-800,2025-12-01,2026-07-07,4
+18,19,38,48,5184,2025-04-06 21:15:00,2025-04-06 23:40:49,Embraer E175,2025-04-06,2026-03-31,3
+19,49,24,83,6150,2025-07-02 07:30:00,2025-07-02 10:24:31,ATR 72-600,2025-07-02,2026-03-12,3
+20,31,8,6,8284,2025-02-24 01:15:00,2025-02-24 09:10:16,Embraer E175,2025-02-24,2025-12-17,2
+21,39,78,75,7361,2025-11-17 04:15:00,2025-11-17 07:32:27,Embraer E190,2025-11-17,2026-03-28,4
+22,12,6,57,8476,2025-09-03 06:30:00,2025-09-03 07:32:21,Airbus A321neo,2025-09-03,2026-03-09,2
+23,37,10,85,1127,2025-01-29 22:45:00,2025-01-30 12:13:07,Airbus A330-300,2025-01-29,2026-01-17,1
+24,86,23,93,9330,2025-03-26 09:00:00,2025-03-26 16:12:15,Embraer E190,2025-03-26,2026-01-03,3
+25,73,26,61,8860,2025-02-13 16:45:00,2025-02-13 23:44:50,Boeing 767-300F,2025-02-13,2025-10-26,2
+26,52,78,80,4966,2025-02-11 23:30:00,2025-02-12 09:01:41,Airbus A380-800,2025-02-11,2025-06-11,4
+27,48,62,85,556,2025-11-28 09:30:00,2025-11-28 17:55:32,ATR 72-600,2025-11-28,2026-05-07,2
+28,29,87,95,6921,2025-08-18 04:30:00,2025-08-18 13:16:05,Airbus A320neo,2025-08-18,2025-12-29,2
+29,73,57,51,3423,2025-05-14 07:15:00,2025-05-14 21:48:33,Airbus A350-900,2025-05-14,2025-10-09,1
+30,29,33,84,3819,2025-02-18 16:30:00,2025-02-19 03:25:38,Airbus A350-900,2025-02-18,2025-08-23,4
+31,29,70,74,1303,2025-12-23 23:00:00,2025-12-24 11:55:17,Bombardier CRJ900,2025-12-23,2026-05-19,4
+32,18,65,71,6521,2025-09-17 20:00:00,2025-09-18 03:26:23,Airbus A350-900,2025-09-17,2026-02-12,2
+33,25,73,61,1042,2026-02-01 04:30:00,2026-02-01 16:21:58,Airbus A321neo,2026-02-01,2026-06-18,2
+34,7,48,6,2321,2025-01-08 14:30:00,2025-01-08 17:11:15,Airbus A321neo,2025-01-08,2025-07-26,1
+35,80,26,73,5693,2025-02-28 05:30:00,2025-02-28 16:56:09,Bombardier CRJ900,2025-02-28,2025-11-26,1
+36,33,16,31,812,2025-07-10 23:30:00,2025-07-11 10:36:17,ATR 72-600,2025-07-10,2026-06-27,3
+37,13,46,71,3264,2025-06-17 01:15:00,2025-06-17 05:48:51,Embraer E175,2025-06-17,2025-11-11,4
+38,3,75,57,4333,2025-02-28 15:00:00,2025-02-28 17:01:57,Boeing 777-300ER,2025-02-28,2025-06-08,2
+39,71,38,88,4502,2025-12-09 04:30:00,2025-12-09 13:02:17,Airbus A330-300,2025-12-09,2026-09-19,1
+40,4,44,20,680,2025-09-07 15:00:00,2025-09-08 03:12:22,Boeing 737 MAX 8,2025-09-07,2026-08-19,2
+41,80,83,87,7449,2025-11-04 15:15:00,2025-11-05 01:57:03,Airbus A321neo,2025-11-04,2026-08-21,2
+42,79,67,10,2245,2025-07-04 16:15:00,2025-07-04 21:36:27,Airbus A380-800,2025-07-04,2026-03-19,1
+43,28,22,47,5894,2026-01-08 10:45:00,2026-01-08 17:10:49,Airbus A320neo,2026-01-08,2026-12-03,1
+44,43,75,62,843,2025-06-20 00:15:00,2025-06-20 07:40:54,Embraer E190,2025-06-20,2026-01-12,2
+45,94,86,19,4393,2025-05-20 08:00:00,2025-05-20 16:00:00,Airbus A320neo,2025-05-20,2026-03-02,2
+46,90,5,72,1721,2026-01-30 06:45:00,2026-01-30 16:36:48,Airbus A320neo,2026-01-30,2026-06-17,3
+47,31,19,88,4117,2025-02-06 10:30:00,2025-02-06 18:37:28,Airbus A320neo,2025-02-06,2025-10-09,4
+48,43,8,91,3947,2025-06-22 15:30:00,2025-06-23 05:01:07,Airbus A320neo,2025-06-22,2026-03-04,2
+49,18,27,1,5054,2025-12-10 12:45:00,2025-12-10 19:17:42,Boeing 767-300F,2025-12-10,2026-10-28,2
+50,76,9,19,3216,2025-06-04 08:30:00,2025-06-04 10:31:44,Airbus A380-800,2025-06-04,2026-02-06,1
+51,75,23,39,7116,2025-10-25 14:30:00,2025-10-26 05:05:15,Embraer E175,2025-10-25,2026-07-22,1
+52,63,41,23,4491,2025-05-22 17:00:00,2025-05-23 04:37:07,Boeing 787-9,2025-05-22,2025-12-29,1
+53,28,7,52,1731,2025-08-18 19:30:00,2025-08-19 08:35:49,Boeing 787-9,2025-08-18,2026-02-26,2
+54,94,8,17,9528,2025-11-04 02:00:00,2025-11-04 14:19:57,Airbus A320neo,2025-11-04,2026-02-26,2
+55,1,25,35,3577,2025-10-02 20:30:00,2025-10-03 10:25:13,Airbus A320neo,2025-10-02,2026-01-07,3
+56,96,4,84,6887,2025-09-06 19:30:00,2025-09-06 22:56:35,Bombardier CRJ900,2025-09-06,2026-06-30,1
+57,12,81,79,7691,2025-06-21 19:45:00,2025-06-22 00:20:53,ATR 72-600,2025-06-21,2026-05-30,1
+58,4,41,73,5493,2025-12-01 01:45:00,2025-12-01 11:20:43,Boeing 777-300ER,2025-12-01,2026-08-08,1
+59,3,20,27,7034,2025-03-15 02:30:00,2025-03-15 14:53:46,Airbus A320neo,2025-03-15,2026-03-11,2
+60,85,78,74,7924,2025-06-19 23:30:00,2025-06-20 11:53:18,Bombardier CRJ900,2025-06-19,2026-01-12,1
+61,100,83,40,8777,2025-11-30 17:30:00,2025-11-30 23:33:32,Boeing 747-8F,2025-11-30,2026-10-18,2
+62,33,2,72,3838,2025-09-01 20:30:00,2025-09-01 23:36:29,Airbus A321neo,2025-09-01,2026-01-20,1
+63,4,80,18,3078,2025-03-04 17:15:00,2025-03-05 02:01:24,Boeing 747-8F,2025-03-04,2025-07-02,3
+64,95,20,23,4074,2026-01-13 16:00:00,2026-01-13 21:54:41,Airbus A330-300,2026-01-13,2026-07-04,4
+65,28,82,45,533,2025-07-19 06:30:00,2025-07-19 18:33:26,Boeing 737 MAX 8,2025-07-19,2026-06-09,1
+66,9,83,52,6816,2025-12-12 01:15:00,2025-12-12 10:08:55,Boeing 767-300F,2025-12-12,2026-09-07,4
+67,85,81,29,4062,2025-01-16 00:30:00,2025-01-16 11:25:46,Boeing 787-9,2025-01-16,2025-08-22,3
+68,27,42,98,9431,2025-08-06 09:45:00,2025-08-06 13:46:57,Bombardier CRJ900,2025-08-06,2026-03-26,2
+69,62,99,35,164,2026-01-20 09:30:00,2026-01-20 11:44:17,Airbus A330-300,2026-01-20,2026-06-28,2
+70,21,41,88,3537,2025-11-09 06:00:00,2025-11-09 19:21:36,ATR 72-600,2025-11-09,2026-09-26,3
+71,6,100,57,1927,2025-04-04 04:30:00,2025-04-04 15:05:31,Boeing 777-300ER,2025-04-04,2026-02-10,1
+72,18,39,20,6607,2025-09-15 03:15:00,2025-09-15 10:45:09,Boeing 737 MAX 8,2025-09-15,2026-06-12,4
+73,44,83,86,3399,2026-01-02 10:00:00,2026-01-02 19:11:37,Bombardier CRJ900,2026-01-02,2026-10-22,1
+74,5,18,65,426,2025-11-01 18:45:00,2025-11-02 05:31:40,Boeing 737-800,2025-11-01,2026-05-28,3
+75,9,15,16,3768,2025-09-07 16:45:00,2025-09-07 17:47:09,Embraer E190,2025-09-07,2026-02-13,2
+76,82,95,70,1366,2025-09-14 16:30:00,2025-09-15 05:15:14,Airbus A320neo,2025-09-14,2026-02-08,2
+77,29,94,10,807,2025-05-20 00:30:00,2025-05-20 05:15:57,Boeing 787-9,2025-05-20,2025-11-16,1
+78,53,72,47,9012,2025-05-17 10:00:00,2025-05-17 20:08:36,Boeing 747-8F,2025-05-17,2025-08-20,3
+79,89,53,96,6967,2026-01-03 12:45:00,2026-01-03 18:12:20,Airbus A321neo,2026-01-03,2026-08-18,2
+80,50,98,50,8309,2025-07-29 20:00:00,2025-07-30 00:20:50,Boeing 767-300F,2025-07-29,2026-01-08,3
+81,89,79,94,651,2025-07-13 06:00:00,2025-07-13 08:12:55,Boeing 767-300F,2025-07-13,2026-02-11,1
+82,52,89,72,9565,2025-06-16 17:30:00,2025-06-17 00:52:36,Boeing 737-800,2025-06-16,2026-04-28,4
+83,96,83,61,6306,2025-09-19 18:45:00,2025-09-19 23:01:55,Airbus A320neo,2025-09-19,2026-06-11,1
+84,51,68,35,4440,2025-11-10 02:15:00,2025-11-10 16:11:06,Boeing 747-8F,2025-11-10,2026-07-22,4
+85,93,45,67,1178,2025-10-29 18:15:00,2025-10-30 09:14:30,Boeing 767-300F,2025-10-29,2026-09-28,3
+86,68,27,68,7641,2025-03-28 07:15:00,2025-03-28 10:23:03,Boeing 777-300ER,2025-03-28,2025-12-30,1
+87,42,49,47,6246,2025-08-08 13:15:00,2025-08-09 00:05:12,Boeing 737 MAX 8,2025-08-08,2026-01-07,3
+88,46,85,67,4859,2025-09-24 14:00:00,2025-09-24 18:51:00,Airbus A330-300,2025-09-24,2026-05-26,1
+89,58,82,62,2238,2026-01-10 16:15:00,2026-01-10 17:19:58,Airbus A320neo,2026-01-10,2026-07-08,4
+90,67,85,31,4242,2025-11-15 16:30:00,2025-11-16 04:43:18,Boeing 737-800,2025-11-15,2026-08-21,2
+91,1,74,34,4288,2025-01-30 09:30:00,2025-01-30 23:20:13,Boeing 787-9,2025-01-30,2025-07-30,3
+92,57,12,68,4858,2025-11-22 02:15:00,2025-11-22 05:02:46,Airbus A380-800,2025-11-22,2026-10-30,3
+93,6,92,57,7160,2025-07-12 01:30:00,2025-07-12 16:04:37,Embraer E190,2025-07-12,2026-04-15,3
+94,46,31,50,9606,2025-10-24 19:15:00,2025-10-25 09:56:15,Airbus A320neo,2025-10-24,2026-03-29,1
+95,86,27,43,6894,2025-02-06 14:45:00,2025-02-06 21:15:20,Airbus A330-300,2025-02-06,2025-06-16,1
+96,14,76,73,7859,2025-08-25 22:45:00,2025-08-26 05:33:30,Boeing 777-300ER,2025-08-25,2026-07-17,1
+97,57,51,63,6681,2025-03-11 00:15:00,2025-03-11 11:36:58,Airbus A350-900,2025-03-11,2026-02-26,1
+98,88,38,71,1363,2025-06-19 14:00:00,2025-06-19 16:15:38,Airbus A380-800,2025-06-19,2026-04-03,1
+99,14,64,12,3374,2026-01-21 18:45:00,2026-01-21 20:31:12,Embraer E175,2026-01-21,2026-08-09,3
+100,62,8,71,920,2025-12-20 18:15:00,2025-12-21 09:13:23,ATR 72-600,2025-12-20,2026-10-19,2
+101,42,43,25,1519,2025-09-23 05:30:00,2025-09-23 13:46:48,Airbus A320neo,2025-09-23,2025-12-25,4
+102,33,85,39,5127,2025-10-12 16:45:00,2025-10-13 03:17:05,Boeing 747-8F,2025-10-12,2026-07-31,2
+103,49,56,70,8895,2025-05-12 06:15:00,2025-05-12 07:58:46,Embraer E190,2025-05-12,2026-01-13,3
+104,60,85,63,9211,2025-12-30 11:30:00,2025-12-30 15:18:13,Embraer E190,2025-12-30,2026-06-10,1
+105,94,41,2,3699,2025-09-30 13:30:00,2025-09-30 14:59:39,Bombardier CRJ900,2025-09-30,2026-02-01,4
+106,38,26,91,3429,2025-04-18 12:45:00,2025-04-18 16:36:14,Boeing 737-800,2025-04-18,2026-03-06,2
+107,56,82,16,9292,2025-01-26 02:45:00,2025-01-26 06:16:20,Embraer E175,2025-01-26,2025-07-05,2
+108,64,29,87,3489,2026-01-04 06:15:00,2026-01-04 09:17:27,Airbus A350-900,2026-01-04,2026-09-01,1
+109,60,13,26,4320,2025-02-16 13:15:00,2025-02-16 23:28:27,Embraer E175,2025-02-16,2025-06-11,4
+110,88,55,20,4910,2025-01-30 01:15:00,2025-01-30 13:57:20,Bombardier CRJ900,2025-01-30,2025-07-07,2
+111,75,41,91,3615,2025-10-15 09:30:00,2025-10-15 15:02:29,Boeing 777-300ER,2025-10-15,2026-04-01,2
+112,51,5,42,9041,2025-07-14 20:30:00,2025-07-15 00:37:37,Embraer E175,2025-07-14,2025-12-30,1
+113,26,60,20,1973,2026-01-08 13:30:00,2026-01-09 00:00:16,Boeing 737-800,2026-01-08,2026-07-11,3
+114,16,85,27,5800,2025-12-02 16:00:00,2025-12-02 21:04:14,Boeing 737-800,2025-12-02,2026-11-25,4
+115,12,26,63,7807,2025-05-24 19:00:00,2025-05-24 22:49:06,Boeing 747-8F,2025-05-24,2026-01-24,2
+116,75,39,5,2593,2025-10-25 00:30:00,2025-10-25 04:13:16,Embraer E190,2025-10-25,2026-03-15,3
+117,7,23,43,6064,2025-06-29 15:15:00,2025-06-29 20:51:49,Boeing 777-300ER,2025-06-29,2026-05-15,1
+118,39,9,93,9858,2025-10-14 03:00:00,2025-10-14 15:01:54,Airbus A321neo,2025-10-14,2026-09-01,4
+119,5,5,6,5881,2025-09-20 13:15:00,2025-09-20 20:03:52,Boeing 737 MAX 8,2025-09-20,2026-02-06,3
+120,94,85,94,7968,2025-03-25 05:00:00,2025-03-25 10:38:34,Boeing 747-8F,2025-03-25,2025-12-24,2
+
+Cirium Aviation Intelligence Mart -- Snowflake | Table: flight_operations
+Operations Domain: actual flight operations and performance data. Grain is one row per operated flight. origin_airport_id is nullable per source diagram cardinality (Assumption #6); destination_airport_id is mandatory.
+flight_key,airline_id,aircraft_id,origin_airport_id,destination_airport_id,schedule_id,flight_date,actual_departure_ts,actual_arrival_ts,delay_minutes,cancellation_flag,diversion_flag,flight_status
+1,7,42,48,6,34,2025-03-05,2025-03-05 14:37:00,2025-03-05 17:18:15,7,FALSE,FALSE,ON_TIME
+2,85,47,78,74,60,2025-07-25,2025-07-26 00:12:00,2025-07-26 12:35:18,42,FALSE,FALSE,DELAYED
+3,52,65,78,80,26,2025-03-18,2025-03-18 23:45:00,2025-03-19 09:16:41,15,FALSE,FALSE,ON_TIME
+4,29,102,70,74,31,2025-12-23,2025-12-24 00:02:00,2025-12-24 12:57:17,62,FALSE,FALSE,DELAYED
+5,33,34,85,39,102,2025-10-25,2025-10-25 16:57:00,2025-10-26 03:29:05,12,FALSE,FALSE,ON_TIME
+6,73,16,64,92,4,2025-11-02,2025-11-02 13:30:00,2025-11-03 03:35:58,0,FALSE,FALSE,EARLY
+7,90,8,39,18,11,2026-01-11,2026-01-11 18:35:00,2026-01-12 00:15:12,20,FALSE,FALSE,DELAYED
+8,38,28,26,91,106,2025-05-26,2025-05-26 12:45:00,2025-05-26 16:36:14,0,FALSE,FALSE,EARLY
+9,50,24,98,50,80,2025-08-09,2025-08-09 20:22:00,2025-08-10 00:42:50,22,FALSE,FALSE,DELAYED
+10,15,12,35,78,2,2026-03-11,2026-03-11 22:00:00,2026-03-12 04:39:54,0,FALSE,FALSE,EARLY
+11,42,27,43,25,101,2025-11-08,2025-11-08 05:54:00,2025-11-08 14:10:48,24,FALSE,FALSE,DELAYED
+12,52,1,78,80,26,2025-03-26,2025-03-26 23:30:00,2025-03-27 09:01:41,0,FALSE,FALSE,EARLY
+13,33,82,85,39,102,2025-10-14,2025-10-14 17:31:00,2025-10-15 04:03:05,46,FALSE,FALSE,DELAYED
+14,32,53,8,22,9,2025-08-12,2025-08-12 13:00:00,2025-08-12 16:49:11,0,FALSE,FALSE,EARLY
+15,98,64,22,87,12,2025-12-30,2025-12-30 19:45:00,2025-12-31 08:30:10,0,FALSE,FALSE,EARLY
+16,19,96,38,48,18,2025-05-20,2025-05-20 21:29:00,2025-05-20 23:54:49,14,FALSE,FALSE,ON_TIME
+17,85,66,78,74,60,2025-08-09,2025-08-09 23:30:00,2025-08-10 11:53:18,0,FALSE,FALSE,EARLY
+18,71,15,38,88,39,2026-01-15,2026-01-15 05:05:00,2026-01-15 13:37:17,35,FALSE,FALSE,DELAYED
+19,32,76,8,22,9,2025-08-22,2025-08-22 13:22:00,2025-08-22 17:11:11,22,FALSE,FALSE,DELAYED
+20,3,88,20,27,59,2025-05-10,2025-05-10 02:30:00,2025-05-10 14:53:46,0,FALSE,FALSE,EARLY
+21,16,44,85,27,114,2025-12-27,2025-12-27 16:00:00,2025-12-27 21:04:14,0,FALSE,FALSE,EARLY
+22,38,108,26,91,106,2025-06-17,2025-06-17 12:45:00,2025-06-17 16:36:14,0,FALSE,FALSE,EARLY
+23,33,78,85,39,102,2025-11-19,2025-11-19 16:49:00,2025-11-20 03:21:05,4,FALSE,FALSE,ON_TIME
+24,97,78,39,20,3,2025-09-08,2025-09-08 18:01:00,2025-09-09 03:49:44,31,FALSE,FALSE,DELAYED
+25,71,5,38,88,39,2025-12-30,2025-12-30 04:30:00,2025-12-30 13:02:17,0,FALSE,FALSE,EARLY
+26,3,53,75,57,38,2025-03-17,2025-03-17 15:29:00,2025-03-17 17:30:57,29,FALSE,FALSE,DELAYED
+27,93,24,45,67,85,2025-11-13,2025-11-13 19:11:00,2025-11-14 10:10:30,56,FALSE,FALSE,DELAYED
+28,76,105,9,19,50,2025-06-13,2025-06-13 08:53:00,2025-06-13 10:54:44,23,FALSE,FALSE,DELAYED
+29,89,78,53,96,79,2026-01-28,2026-01-28 13:28:00,2026-01-28 18:55:20,43,FALSE,FALSE,DELAYED
+30,73,110,26,61,25,2025-02-23,2025-02-23 16:45:00,2025-02-23 23:44:50,0,FALSE,TRUE,DIVERTED
+31,37,13,10,85,23,2025-02-13,2025-02-13 22:56:00,2025-02-14 12:24:07,11,FALSE,FALSE,ON_TIME
+32,6,97,100,57,71,2025-05-22,2025-05-22 05:05:00,2025-05-22 15:40:31,35,FALSE,FALSE,DELAYED
+33,12,47,26,63,115,2025-06-19,2025-06-19 19:00:00,2025-06-19 22:49:06,0,FALSE,FALSE,EARLY
+34,4,104,44,20,40,2025-10-17,2025-10-17 15:33:00,2025-10-18 03:45:22,33,FALSE,FALSE,DELAYED
+35,42,107,49,47,87,2025-09-18,2025-09-18 13:35:00,2025-09-19 00:25:12,20,FALSE,FALSE,DELAYED
+36,16,66,85,27,114,2026-01-06,2026-01-06 16:10:00,2026-01-06 21:14:14,10,FALSE,FALSE,ON_TIME
+37,12,35,26,63,115,2025-07-01,2025-07-01 19:05:00,2025-07-01 22:54:06,5,FALSE,FALSE,ON_TIME
+38,49,51,24,83,19,2025-08-29,2025-08-29 07:54:00,2025-08-29 10:48:31,24,FALSE,FALSE,DELAYED
+39,37,4,10,85,23,2025-03-11,2025-03-11 22:59:00,2025-03-12 12:27:07,14,FALSE,FALSE,ON_TIME
+40,94,87,8,17,54,2025-11-30,2025-11-30 02:54:00,2025-11-30 15:13:57,54,FALSE,FALSE,DELAYED
+41,52,64,89,72,82,2025-07-31,2025-07-31 17:30:00,2025-08-01 00:52:36,0,FALSE,FALSE,EARLY
+42,38,67,26,91,106,2025-05-22,2025-05-22 13:39:00,2025-05-22 17:30:14,54,FALSE,FALSE,DELAYED
+43,60,76,85,63,104,2026-01-09,2026-01-09 11:30:00,2026-01-09 15:18:13,0,FALSE,FALSE,EARLY
+44,71,24,38,88,39,2026-01-27,2026-01-27 04:30:00,2026-01-27 13:02:17,0,FALSE,FALSE,EARLY
+45,80,88,26,73,35,2025-04-29,2025-04-29 06:04:00,2025-04-29 17:30:09,34,FALSE,FALSE,DELAYED
+46,7,35,48,6,34,2025-01-28,2025-01-28 14:30:00,2025-01-28 17:11:15,0,FALSE,FALSE,EARLY
+47,22,41,72,10,15,2025-03-23,2025-03-23 14:45:00,2025-03-23 16:55:32,0,FALSE,FALSE,EARLY
+48,96,109,12,54,6,2026-02-08,2026-02-08 23:35:00,2026-02-09 04:31:10,20,FALSE,FALSE,DELAYED
+49,68,37,27,68,86,2025-04-01,2025-04-01 07:53:00,2025-04-01 11:01:03,38,FALSE,FALSE,DELAYED
+50,60,69,13,26,109,2025-03-04,2025-03-04 13:15:00,2025-03-04 23:28:27,0,FALSE,FALSE,EARLY
+51,38,9,26,91,106,2025-05-07,2025-05-07 12:55:00,2025-05-07 16:46:14,10,FALSE,FALSE,ON_TIME
+52,26,107,60,20,113,2026-02-25,2026-02-25 14:00:00,2026-02-26 00:30:16,30,FALSE,FALSE,DELAYED
+53,60,89,85,63,104,2026-02-27,2026-02-27 12:16:00,2026-02-27 16:04:13,46,FALSE,FALSE,DELAYED
+54,14,108,83,63,16,2025-09-05,2025-09-05 06:34:00,2025-09-05 07:40:58,4,FALSE,FALSE,ON_TIME
+55,43,69,75,62,44,2025-07-21,2025-07-21 00:46:00,2025-07-21 08:11:54,31,FALSE,FALSE,DELAYED
+56,86,28,27,43,95,2025-03-20,2025-03-20 15:43:00,2025-03-20 22:13:20,58,FALSE,FALSE,DELAYED
+57,43,74,75,62,44,2025-08-18,2025-08-18 00:49:00,2025-08-18 08:14:54,34,FALSE,FALSE,DELAYED
+58,96,87,4,84,56,2025-10-12,2025-10-12 19:30:00,2025-10-12 22:56:35,0,FALSE,FALSE,EARLY
+59,42,37,43,25,101,2025-10-01,2025-10-01 05:42:00,2025-10-01 13:58:48,12,FALSE,FALSE,ON_TIME
+60,75,37,39,5,116,2025-12-16,2025-12-16 00:30:00,2025-12-16 04:13:16,0,FALSE,FALSE,EARLY
+61,81,78,79,94,17,2026-01-26,2026-01-26 20:25:00,2026-01-26 22:30:38,10,FALSE,FALSE,ON_TIME
+62,53,40,72,47,78,2025-06-03,2025-06-03 10:21:00,2025-06-03 20:29:36,21,FALSE,FALSE,DELAYED
+63,15,10,89,38,13,2025-02-12,2025-02-12 15:15:00,2025-02-12 16:51:27,0,FALSE,FALSE,EARLY
+64,14,98,83,63,16,2025-08-31,2025-08-31 07:11:00,2025-08-31 08:17:58,41,FALSE,FALSE,DELAYED
+65,19,6,38,48,18,2025-05-08,2025-05-08 21:15:00,2025-05-08 23:40:49,0,FALSE,FALSE,EARLY
+66,62,44,99,35,69,2026-01-27,2026-01-27 09:30:00,2026-01-27 11:44:17,0,FALSE,FALSE,EARLY
+67,28,104,22,47,43,2026-01-22,2026-01-22 11:09:00,2026-01-22 17:34:49,24,FALSE,FALSE,DELAYED
+68,5,104,18,65,74,2025-11-02,2025-11-02 19:43:00,2025-11-03 06:29:40,58,FALSE,FALSE,DELAYED
+69,28,52,82,45,65,2025-08-11,2025-08-11 06:36:00,2025-08-11 18:39:26,6,FALSE,FALSE,ON_TIME
+70,76,8,9,19,50,2025-07-11,2025-07-11 08:30:00,2025-07-11 10:31:44,0,FALSE,FALSE,EARLY
+71,49,18,56,70,103,2025-06-15,2025-06-15 06:52:00,2025-06-15 08:35:46,37,FALSE,FALSE,DELAYED
+72,96,25,4,84,56,2025-10-19,2025-10-19 19:54:00,2025-10-19 23:20:35,24,FALSE,FALSE,DELAYED
+73,43,67,75,62,44,2025-06-27,2025-06-27 00:41:00,2025-06-27 08:06:54,26,FALSE,FALSE,DELAYED
+74,97,99,39,20,3,2025-07-26,2025-07-26 18:20:00,2025-07-27 04:08:44,50,FALSE,FALSE,DELAYED
+75,7,95,48,6,34,2025-02-25,2025-02-25 14:41:00,2025-02-25 17:22:15,11,FALSE,FALSE,ON_TIME
+76,6,2,92,57,93,2025-07-13,2025-07-13 01:30:00,2025-07-13 16:04:37,0,FALSE,FALSE,EARLY
+77,56,73,82,16,107,2025-03-13,2025-03-13 02:45:00,2025-03-13 06:16:20,0,FALSE,FALSE,EARLY
+78,89,23,79,94,81,2025-08-04,2025-08-04 06:00:00,2025-08-04 08:12:55,0,FALSE,FALSE,EARLY
+79,58,110,82,62,89,2026-03-08,2026-03-08 16:30:00,2026-03-08 17:34:58,15,FALSE,FALSE,ON_TIME
+80,31,44,8,6,20,2025-04-21,2025-04-21 01:15:00,2025-04-21 09:10:16,0,FALSE,FALSE,EARLY
+81,33,66,85,39,102,2025-12-08,2025-12-08 17:21:00,2025-12-09 03:53:05,36,FALSE,FALSE,DELAYED
+82,76,25,9,19,50,2025-06-20,2025-06-20 09:02:00,2025-06-20 11:03:44,32,FALSE,FALSE,DELAYED
+83,1,104,74,34,91,2025-03-23,2025-03-23 09:39:00,2025-03-23 23:29:13,9,FALSE,FALSE,ON_TIME
+84,12,94,26,63,115,2025-06-01,2025-06-01 19:00:00,2025-06-01 22:49:06,0,FALSE,FALSE,EARLY
+85,9,107,15,16,75,2025-09-08,,,,TRUE,FALSE,CANCELLED
+86,42,42,43,25,101,2025-11-11,2025-11-11 05:32:00,2025-11-11 13:48:48,2,FALSE,FALSE,ON_TIME
+87,43,27,75,62,44,2025-08-15,2025-08-15 00:24:00,2025-08-15 07:49:54,9,FALSE,FALSE,ON_TIME
+88,53,26,4,85,1,2026-02-22,2026-02-22 08:38:00,2026-02-22 14:33:46,53,FALSE,FALSE,DELAYED
+89,12,57,81,79,57,2025-07-28,2025-07-28 20:26:00,2025-07-29 01:01:53,41,FALSE,FALSE,DELAYED
+90,88,92,38,71,98,2025-08-04,2025-08-04 14:29:00,2025-08-04 16:44:38,29,FALSE,FALSE,DELAYED
+91,29,19,70,74,31,2026-01-22,2026-01-22 23:43:00,2026-01-23 12:38:17,43,FALSE,FALSE,DELAYED
+92,14,1,83,63,16,2025-09-18,2025-09-18 06:58:00,2025-09-18 08:04:58,28,FALSE,FALSE,DELAYED
+93,75,95,23,39,51,2025-12-11,2025-12-11 14:30:00,2025-12-12 05:05:15,0,FALSE,FALSE,EARLY
+94,96,52,83,61,83,2025-09-25,2025-09-25 19:25:00,2025-09-25 23:41:55,40,FALSE,FALSE,DELAYED
+95,29,72,70,74,31,2026-01-06,2026-01-06 23:12:00,2026-01-07 12:07:17,12,FALSE,FALSE,ON_TIME
+96,52,14,89,72,82,2025-07-12,2025-07-12 18:23:00,2025-07-13 01:45:36,53,FALSE,FALSE,DELAYED
+97,88,68,38,71,98,2025-08-03,2025-08-03 14:16:00,2025-08-03 16:31:38,16,FALSE,FALSE,DELAYED
+98,39,1,78,75,21,2025-12-07,2025-12-07 05:09:00,2025-12-07 08:26:27,54,FALSE,FALSE,DELAYED
+99,88,72,91,63,10,2026-01-14,2026-01-14 07:15:00,2026-01-14 08:19:56,0,FALSE,FALSE,EARLY
+100,50,38,98,50,80,2025-09-17,2025-09-17 20:41:00,2025-09-18 01:01:50,41,FALSE,FALSE,DELAYED
+101,3,24,20,27,59,2025-03-15,2025-03-15 02:52:00,2025-03-15 15:15:46,22,FALSE,FALSE,DELAYED
+102,56,55,82,16,107,2025-03-20,2025-03-20 02:46:00,2025-03-20 06:17:20,1,FALSE,FALSE,ON_TIME
+103,22,13,72,10,15,2025-01-29,2025-01-29 14:45:00,2025-01-29 16:55:32,0,FALSE,FALSE,EARLY
+104,98,40,22,87,12,2026-01-31,2026-01-31 20:13:00,2026-02-01 08:58:10,28,FALSE,FALSE,DELAYED
+105,88,99,38,71,98,2025-07-20,2025-07-20 14:22:00,2025-07-20 16:37:38,22,FALSE,FALSE,DELAYED
+106,73,50,,61,25,2025-02-17,2025-02-17 16:58:00,2025-02-17 23:57:50,13,FALSE,FALSE,ON_TIME
+107,3,98,20,27,59,2025-05-13,2025-05-13 02:30:00,2025-05-13 14:53:46,0,FALSE,FALSE,EARLY
+108,46,88,31,50,94,2025-10-29,2025-10-29 19:25:00,2025-10-30 10:06:15,10,FALSE,FALSE,ON_TIME
+109,19,80,38,48,18,2025-05-03,2025-05-03 21:20:00,2025-05-03 23:45:49,5,FALSE,FALSE,ON_TIME
+110,3,49,75,57,38,2025-04-14,2025-04-14 15:15:00,2025-04-14 17:16:57,15,FALSE,FALSE,ON_TIME
+111,15,61,89,38,13,2025-01-17,2025-01-17 15:22:00,2025-01-17 16:58:27,7,FALSE,FALSE,ON_TIME
+112,88,53,38,71,98,2025-08-06,2025-08-06 14:09:00,2025-08-06 16:24:38,9,FALSE,FALSE,ON_TIME
+113,62,105,,35,69,2026-02-03,2026-02-03 10:00:00,2026-02-03 12:14:17,30,FALSE,FALSE,DELAYED
+114,28,14,,47,43,2026-02-26,2026-02-26 11:05:00,2026-02-26 17:30:49,20,FALSE,FALSE,DELAYED
+115,6,9,75,78,5,2026-01-12,2026-01-12 07:00:00,2026-01-12 08:31:11,0,FALSE,FALSE,EARLY
+116,62,53,99,35,69,2026-02-18,2026-02-18 09:30:00,2026-02-18 11:44:17,0,FALSE,FALSE,EARLY
+117,94,83,85,94,120,2025-05-08,2025-05-08 05:00:00,2025-05-08 10:38:34,0,FALSE,FALSE,EARLY
+118,29,23,87,95,28,2025-10-05,2025-10-05 04:39:00,2025-10-05 13:25:05,9,FALSE,FALSE,ON_TIME
+119,89,37,53,96,79,2026-02-15,2026-02-15 13:36:00,2026-02-15 19:03:20,51,FALSE,FALSE,DELAYED
+120,57,34,51,63,97,2025-04-01,2025-04-01 00:20:00,2025-04-01 11:41:58,5,FALSE,FALSE,ON_TIME
+121,50,9,98,50,80,2025-09-08,2025-09-08 20:00:00,2025-09-09 00:20:50,0,FALSE,FALSE,EARLY
+122,29,47,94,10,77,2025-06-14,2025-06-14 00:45:00,2025-06-14 05:30:57,15,FALSE,FALSE,ON_TIME
+123,88,66,91,63,10,2025-12-17,2025-12-17 07:28:00,2025-12-17 08:32:56,13,FALSE,FALSE,ON_TIME
+124,58,53,82,62,89,2026-03-09,2026-03-09 16:44:00,2026-03-09 17:48:58,29,FALSE,FALSE,DELAYED
+125,67,59,85,31,90,2025-12-13,2025-12-13 16:54:00,2025-12-14 05:07:18,24,FALSE,FALSE,DELAYED
+126,43,103,75,62,44,2025-07-03,2025-07-03 00:34:00,2025-07-03 07:59:54,19,FALSE,FALSE,DELAYED
+127,94,10,86,19,45,2025-06-06,2025-06-06 09:00:00,2025-06-06 17:00:00,60,FALSE,FALSE,DELAYED
+128,75,19,39,5,116,2025-12-14,2025-12-14 00:33:00,2025-12-14 04:16:16,3,FALSE,FALSE,ON_TIME
+129,33,73,2,72,62,2025-09-04,2025-09-04 20:30:00,2025-09-04 23:36:29,0,FALSE,FALSE,EARLY
+130,9,46,15,16,75,2025-09-11,2025-09-11 17:50:00,2025-09-11 18:52:09,65,FALSE,FALSE,DELAYED
+131,31,33,19,88,47,2025-02-17,2025-02-17 10:30:00,2025-02-17 18:37:28,0,FALSE,FALSE,EARLY
+132,43,98,8,91,48,2025-07-25,2025-07-25 15:54:00,2025-07-26 05:25:07,24,FALSE,FALSE,DELAYED
+133,18,29,27,1,49,2025-12-11,2025-12-11 12:48:00,2025-12-11 19:20:42,3,FALSE,FALSE,ON_TIME
+134,88,13,38,71,98,2025-07-12,2025-07-12 14:11:00,2025-07-12 16:26:38,11,FALSE,FALSE,ON_TIME
+135,93,57,45,67,85,2025-11-21,2025-11-21 18:30:00,2025-11-22 09:29:30,15,FALSE,FALSE,ON_TIME
+136,4,23,80,18,63,2025-04-02,2025-04-02 17:15:00,2025-04-03 02:01:24,0,FALSE,FALSE,EARLY
+137,7,35,23,43,117,2025-07-27,2025-07-27 15:43:00,2025-07-27 21:19:49,28,FALSE,FALSE,DELAYED
+138,31,96,19,88,47,2025-02-21,2025-02-21 10:57:00,2025-02-21 19:04:28,27,FALSE,FALSE,DELAYED
+139,29,49,87,95,28,2025-10-12,2025-10-12 04:49:00,2025-10-12 13:35:05,19,FALSE,FALSE,DELAYED
+140,22,28,72,10,15,2025-02-20,2025-02-20 15:20:00,2025-02-20 17:30:32,35,FALSE,FALSE,DELAYED
+141,15,101,89,38,13,2025-01-23,2025-01-23 16:10:00,2025-01-23 17:46:27,55,FALSE,FALSE,DELAYED
+142,46,47,31,50,94,2025-12-14,2025-12-14 19:37:00,2025-12-15 10:18:15,22,FALSE,FALSE,DELAYED
+143,32,2,8,22,9,2025-08-02,2025-08-02 13:47:00,2025-08-02 17:36:11,47,FALSE,FALSE,DELAYED
+144,89,83,79,94,81,2025-08-14,2025-08-14 06:09:00,2025-08-14 08:21:55,9,FALSE,FALSE,ON_TIME
+145,29,19,33,84,30,2025-04-01,2025-04-01 16:36:00,2025-04-02 03:31:38,6,FALSE,FALSE,ON_TIME
+146,76,84,9,19,50,2025-08-03,2025-08-03 09:04:00,2025-08-03 11:05:44,34,FALSE,FALSE,DELAYED
+147,86,11,23,93,24,2025-03-27,2025-03-27 09:00:00,2025-03-27 16:12:15,0,FALSE,FALSE,EARLY
+148,4,41,41,73,58,2025-12-03,2025-12-03 02:08:00,2025-12-03 11:43:43,23,FALSE,FALSE,DELAYED
+149,9,2,15,16,75,2025-09-11,2025-09-11 16:45:00,2025-09-11 17:47:09,0,FALSE,FALSE,EARLY
+150,31,87,19,88,47,2025-02-20,2025-02-20 11:06:00,2025-02-20 19:13:28,36,FALSE,FALSE,DELAYED
+
+Cirium Aviation Intelligence Mart -- Snowflake | Table: flight_events
+"Event Domain (Hub): high-volume event stream from legacy Hub, migrating to Kafka. One row per event message. event_type is denormalized text (Assumption #2); event_payload is semi-structured VARIANT shown here as JSON text (Assumption #3)."
+event_id,flight_key,event_type,event_timestamp,producer_system,event_payload
+1,55,CUSTOMS_CLEARED,2025-07-21 19:53:00,MX-Hub,"{""event"": ""CUSTOMS_CLEARED"", ""flight_key"": 55, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+2,117,GATE_DEPARTURE,2025-05-08 09:59:00,BagTrak,"{""event"": ""GATE_DEPARTURE"", ""flight_key"": 117, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+3,88,INSPECTION_COMPLETED,2026-02-22 16:51:00,ATC-Gateway,"{""event"": ""INSPECTION_COMPLETED"", ""flight_key"": 88, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+4,1,FUEL_LOADED,2025-03-05 08:40:00,SecurityNet,"{""event"": ""FUEL_LOADED"", ""flight_key"": 1, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+5,36,WHEELS_UP,2026-01-06 12:02:00,SecurityNet,"{""event"": ""WHEELS_UP"", ""flight_key"": 36, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+6,39,INSPECTION_STARTED,2025-03-11 08:12:00,BagTrak,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 39, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+7,60,FUEL_LOADED,2025-12-16 12:56:00,MX-Hub,"{""event"": ""FUEL_LOADED"", ""flight_key"": 60, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+8,146,CANCELLATION_ALERT,2025-08-03 21:32:00,SecurityNet,"{""event"": ""CANCELLATION_ALERT"", ""flight_key"": 146, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+9,25,GATE_ARRIVAL,2025-12-30 01:38:00,CrewTrac,"{""event"": ""GATE_ARRIVAL"", ""flight_key"": 25, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+10,74,PUSHBACK,2025-07-26 07:50:00,SecurityNet,"{""event"": ""PUSHBACK"", ""flight_key"": 74, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+11,77,DELAY_ALERT,2025-03-13 23:48:00,WxFeed,"{""event"": ""DELAY_ALERT"", ""flight_key"": 77, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+12,134,PUSHBACK,2025-07-12 19:58:00,MX-Hub,"{""event"": ""PUSHBACK"", ""flight_key"": 134, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+13,147,CANCELLATION_ALERT,2025-03-27 17:09:00,ATC-Gateway,"{""event"": ""CANCELLATION_ALERT"", ""flight_key"": 147, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+14,106,PUSHBACK,2025-02-17 16:16:00,LegacyHub,"{""event"": ""PUSHBACK"", ""flight_key"": 106, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+15,121,FUEL_LOADED,2025-09-08 05:34:00,WxFeed,"{""event"": ""FUEL_LOADED"", ""flight_key"": 121, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+16,47,CATERING_LOADED,2025-03-23 15:29:00,ATC-Gateway,"{""event"": ""CATERING_LOADED"", ""flight_key"": 47, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+17,139,DELAY_ALERT,2025-10-12 13:53:00,WxFeed,"{""event"": ""DELAY_ALERT"", ""flight_key"": 139, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+18,98,WHEELS_DOWN,2025-12-07 23:51:00,ATC-Gateway,"{""event"": ""WHEELS_DOWN"", ""flight_key"": 98, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+19,69,WHEELS_DOWN,2025-08-11 06:21:00,SecurityNet,"{""event"": ""WHEELS_DOWN"", ""flight_key"": 69, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+20,20,INSPECTION_COMPLETED,2025-05-10 17:35:00,SecurityNet,"{""event"": ""INSPECTION_COMPLETED"", ""flight_key"": 20, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+21,81,GATE_ARRIVAL,2025-12-08 10:39:00,BagTrak,"{""event"": ""GATE_ARRIVAL"", ""flight_key"": 81, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+22,101,DIVERSION_ALERT,2025-03-15 15:22:00,ATC-Gateway,"{""event"": ""DIVERSION_ALERT"", ""flight_key"": 101, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+23,64,DIVERSION_ALERT,2025-09-01 00:24:00,MX-Hub,"{""event"": ""DIVERSION_ALERT"", ""flight_key"": 64, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+24,42,GATE_DEPARTURE,2025-05-22 07:25:00,LegacyHub,"{""event"": ""GATE_DEPARTURE"", ""flight_key"": 42, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+25,137,PUSHBACK,2025-07-27 12:44:00,BagTrak,"{""event"": ""PUSHBACK"", ""flight_key"": 137, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+26,22,BOARDING_STARTED,2025-06-17 21:17:00,BagTrak,"{""event"": ""BOARDING_STARTED"", ""flight_key"": 22, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+27,68,GATE_ARRIVAL,2025-11-02 21:24:00,CrewTrac,"{""event"": ""GATE_ARRIVAL"", ""flight_key"": 68, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+28,23,INSPECTION_STARTED,2025-11-19 09:15:00,WxFeed,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 23, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+29,82,CANCELLATION_ALERT,2025-06-20 12:50:00,LegacyHub,"{""event"": ""CANCELLATION_ALERT"", ""flight_key"": 82, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+30,22,PUSHBACK,2025-06-17 09:30:00,LegacyHub,"{""event"": ""PUSHBACK"", ""flight_key"": 22, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+31,68,CUSTOMS_CLEARED,2025-11-02 06:24:00,ATC-Gateway,"{""event"": ""CUSTOMS_CLEARED"", ""flight_key"": 68, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+32,144,CATERING_LOADED,2025-08-14 06:09:00,MX-Hub,"{""event"": ""CATERING_LOADED"", ""flight_key"": 144, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+33,5,CUSTOMS_CLEARED,2025-10-25 07:06:00,CrewTrac,"{""event"": ""CUSTOMS_CLEARED"", ""flight_key"": 5, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+34,39,DELAY_ALERT,2025-03-11 09:44:00,CrewTrac,"{""event"": ""DELAY_ALERT"", ""flight_key"": 39, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+35,121,GATE_ARRIVAL,2025-09-08 18:55:00,ATC-Gateway,"{""event"": ""GATE_ARRIVAL"", ""flight_key"": 121, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+36,28,CANCELLATION_ALERT,2025-06-13 21:48:00,SecurityNet,"{""event"": ""CANCELLATION_ALERT"", ""flight_key"": 28, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+37,134,GATE_ARRIVAL,2025-07-12 16:59:00,LegacyHub,"{""event"": ""GATE_ARRIVAL"", ""flight_key"": 134, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+38,57,FUEL_LOADED,2025-08-18 17:18:00,ATC-Gateway,"{""event"": ""FUEL_LOADED"", ""flight_key"": 57, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+39,48,CANCELLATION_ALERT,2026-02-08 11:09:00,BagTrak,"{""event"": ""CANCELLATION_ALERT"", ""flight_key"": 48, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+40,16,DIVERSION_ALERT,2025-05-20 09:38:00,WxFeed,"{""event"": ""DIVERSION_ALERT"", ""flight_key"": 16, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+41,134,INSPECTION_STARTED,2025-07-12 22:58:00,MX-Hub,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 134, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+42,13,BOARDING_STARTED,2025-10-14 10:32:00,ATC-Gateway,"{""event"": ""BOARDING_STARTED"", ""flight_key"": 13, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+43,119,WHEELS_UP,2026-02-15 01:59:00,WxFeed,"{""event"": ""WHEELS_UP"", ""flight_key"": 119, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+44,122,WHEELS_UP,2025-06-14 16:08:00,CrewTrac,"{""event"": ""WHEELS_UP"", ""flight_key"": 122, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+45,100,CANCELLATION_ALERT,2025-09-17 13:19:00,ATC-Gateway,"{""event"": ""CANCELLATION_ALERT"", ""flight_key"": 100, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+46,116,INSPECTION_COMPLETED,2026-02-18 13:19:00,CustomsLink,"{""event"": ""INSPECTION_COMPLETED"", ""flight_key"": 116, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+47,81,FUEL_LOADED,2025-12-08 18:53:00,MX-Hub,"{""event"": ""FUEL_LOADED"", ""flight_key"": 81, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+48,35,FUEL_LOADED,2025-09-18 00:47:00,LegacyHub,"{""event"": ""FUEL_LOADED"", ""flight_key"": 35, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+49,77,INSPECTION_STARTED,2025-03-14 01:38:00,CrewTrac,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 77, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+50,38,GATE_DEPARTURE,2025-08-29 11:26:00,BagTrak,"{""event"": ""GATE_DEPARTURE"", ""flight_key"": 38, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+51,136,BOARDING_STARTED,2025-04-02 04:41:00,SecurityNet,"{""event"": ""BOARDING_STARTED"", ""flight_key"": 136, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+52,44,CATERING_LOADED,2026-01-27 09:33:00,WxFeed,"{""event"": ""CATERING_LOADED"", ""flight_key"": 44, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+53,93,WHEELS_UP,2025-12-11 06:09:00,MX-Hub,"{""event"": ""WHEELS_UP"", ""flight_key"": 93, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+54,99,DIVERSION_ALERT,2026-01-14 15:49:00,SecurityNet,"{""event"": ""DIVERSION_ALERT"", ""flight_key"": 99, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+55,52,CUSTOMS_CLEARED,2026-02-25 23:54:00,WxFeed,"{""event"": ""CUSTOMS_CLEARED"", ""flight_key"": 52, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+56,64,CUSTOMS_CLEARED,2025-08-31 03:52:00,BagTrak,"{""event"": ""CUSTOMS_CLEARED"", ""flight_key"": 64, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+57,83,BOARDING_COMPLETED,2025-03-23 12:09:00,SecurityNet,"{""event"": ""BOARDING_COMPLETED"", ""flight_key"": 83, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+58,15,INSPECTION_COMPLETED,2025-12-30 04:09:00,MX-Hub,"{""event"": ""INSPECTION_COMPLETED"", ""flight_key"": 15, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+59,11,INSPECTION_STARTED,2025-11-08 02:26:00,WxFeed,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 11, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+60,78,CREW_HANDOVER,2025-08-04 13:51:00,CrewTrac,"{""event"": ""CREW_HANDOVER"", ""flight_key"": 78, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+61,59,DELAY_ALERT,2025-10-01 05:10:00,LegacyHub,"{""event"": ""DELAY_ALERT"", ""flight_key"": 59, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+62,44,INSPECTION_STARTED,2026-01-27 05:39:00,SecurityNet,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 44, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+63,79,INSPECTION_STARTED,2026-03-08 07:51:00,LegacyHub,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 79, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+64,89,GATE_DEPARTURE,2025-07-28 05:41:00,CustomsLink,"{""event"": ""GATE_DEPARTURE"", ""flight_key"": 89, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+65,87,INSPECTION_STARTED,2025-08-15 16:34:00,ATC-Gateway,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 87, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+66,17,GATE_ARRIVAL,2025-08-09 04:47:00,ATC-Gateway,"{""event"": ""GATE_ARRIVAL"", ""flight_key"": 17, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+67,95,GATE_DEPARTURE,2026-01-06 05:14:00,CustomsLink,"{""event"": ""GATE_DEPARTURE"", ""flight_key"": 95, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+68,103,DIVERSION_ALERT,2025-01-29 11:58:00,CustomsLink,"{""event"": ""DIVERSION_ALERT"", ""flight_key"": 103, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+69,82,WHEELS_UP,2025-06-20 13:30:00,CrewTrac,"{""event"": ""WHEELS_UP"", ""flight_key"": 82, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+70,124,DELAY_ALERT,2026-03-09 13:51:00,ATC-Gateway,"{""event"": ""DELAY_ALERT"", ""flight_key"": 124, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+71,93,WHEELS_UP,2025-12-11 22:07:00,LegacyHub,"{""event"": ""WHEELS_UP"", ""flight_key"": 93, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+72,119,WHEELS_DOWN,2026-02-15 17:57:00,CrewTrac,"{""event"": ""WHEELS_DOWN"", ""flight_key"": 119, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+73,48,INSPECTION_COMPLETED,2026-02-08 19:53:00,ATC-Gateway,"{""event"": ""INSPECTION_COMPLETED"", ""flight_key"": 48, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+74,15,BOARDING_STARTED,2025-12-30 10:11:00,CrewTrac,"{""event"": ""BOARDING_STARTED"", ""flight_key"": 15, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+75,107,INSPECTION_STARTED,2025-05-13 08:04:00,BagTrak,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 107, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+76,126,WHEELS_DOWN,2025-07-03 21:42:00,SecurityNet,"{""event"": ""WHEELS_DOWN"", ""flight_key"": 126, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+77,144,WHEELS_UP,2025-08-14 04:23:00,WxFeed,"{""event"": ""WHEELS_UP"", ""flight_key"": 144, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+78,14,GATE_ARRIVAL,2025-08-12 04:33:00,ATC-Gateway,"{""event"": ""GATE_ARRIVAL"", ""flight_key"": 14, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+79,131,BOARDING_COMPLETED,2025-02-17 18:01:00,BagTrak,"{""event"": ""BOARDING_COMPLETED"", ""flight_key"": 131, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+80,113,CANCELLATION_ALERT,2026-02-03 00:54:00,MX-Hub,"{""event"": ""CANCELLATION_ALERT"", ""flight_key"": 113, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+81,60,FUEL_LOADED,2025-12-16 16:37:00,CrewTrac,"{""event"": ""FUEL_LOADED"", ""flight_key"": 60, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+82,2,CANCELLATION_ALERT,2025-07-25 11:16:00,BagTrak,"{""event"": ""CANCELLATION_ALERT"", ""flight_key"": 2, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+83,60,WHEELS_UP,2025-12-16 19:58:00,CustomsLink,"{""event"": ""WHEELS_UP"", ""flight_key"": 60, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+84,56,GATE_DEPARTURE,2025-03-20 12:06:00,LegacyHub,"{""event"": ""GATE_DEPARTURE"", ""flight_key"": 56, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+85,114,CATERING_LOADED,2026-02-26 05:46:00,WxFeed,"{""event"": ""CATERING_LOADED"", ""flight_key"": 114, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+86,118,INSPECTION_STARTED,2025-10-05 08:53:00,ATC-Gateway,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 118, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+87,51,INSPECTION_COMPLETED,2025-05-07 09:44:00,SecurityNet,"{""event"": ""INSPECTION_COMPLETED"", ""flight_key"": 51, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+88,78,BOARDING_COMPLETED,2025-08-04 13:40:00,CrewTrac,"{""event"": ""BOARDING_COMPLETED"", ""flight_key"": 78, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+89,37,DIVERSION_ALERT,2025-07-01 06:33:00,SecurityNet,"{""event"": ""DIVERSION_ALERT"", ""flight_key"": 37, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+90,123,CANCELLATION_ALERT,2025-12-17 17:47:00,ATC-Gateway,"{""event"": ""CANCELLATION_ALERT"", ""flight_key"": 123, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+91,121,BOARDING_STARTED,2025-09-08 21:31:00,CrewTrac,"{""event"": ""BOARDING_STARTED"", ""flight_key"": 121, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+92,91,CREW_HANDOVER,2026-01-22 22:20:00,WxFeed,"{""event"": ""CREW_HANDOVER"", ""flight_key"": 91, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+93,109,CREW_HANDOVER,2025-05-03 15:30:00,BagTrak,"{""event"": ""CREW_HANDOVER"", ""flight_key"": 109, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+94,120,CUSTOMS_CLEARED,2025-04-01 17:21:00,SecurityNet,"{""event"": ""CUSTOMS_CLEARED"", ""flight_key"": 120, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+95,111,GATE_ARRIVAL,2025-01-17 19:50:00,BagTrak,"{""event"": ""GATE_ARRIVAL"", ""flight_key"": 111, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+96,94,DELAY_ALERT,2025-09-25 23:32:00,BagTrak,"{""event"": ""DELAY_ALERT"", ""flight_key"": 94, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+97,141,BOARDING_STARTED,2025-01-23 22:18:00,CrewTrac,"{""event"": ""BOARDING_STARTED"", ""flight_key"": 141, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+98,35,FUEL_LOADED,2025-09-18 03:35:00,MX-Hub,"{""event"": ""FUEL_LOADED"", ""flight_key"": 35, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+99,94,INSPECTION_STARTED,2025-09-25 17:59:00,CustomsLink,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 94, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+100,30,CANCELLATION_ALERT,2025-02-23 12:48:00,WxFeed,"{""event"": ""CANCELLATION_ALERT"", ""flight_key"": 30, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+101,100,GATE_ARRIVAL,2025-09-17 06:51:00,WxFeed,"{""event"": ""GATE_ARRIVAL"", ""flight_key"": 100, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+102,74,CREW_HANDOVER,2025-07-26 20:08:00,CrewTrac,"{""event"": ""CREW_HANDOVER"", ""flight_key"": 74, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+103,50,WHEELS_DOWN,2025-03-04 06:11:00,ATC-Gateway,"{""event"": ""WHEELS_DOWN"", ""flight_key"": 50, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+104,57,WHEELS_UP,2025-08-18 03:00:00,CrewTrac,"{""event"": ""WHEELS_UP"", ""flight_key"": 57, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+105,37,CATERING_LOADED,2025-07-01 17:16:00,LegacyHub,"{""event"": ""CATERING_LOADED"", ""flight_key"": 37, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+106,128,PUSHBACK,2025-12-15 02:21:00,BagTrak,"{""event"": ""PUSHBACK"", ""flight_key"": 128, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+107,33,GATE_DEPARTURE,2025-06-19 08:43:00,CrewTrac,"{""event"": ""GATE_DEPARTURE"", ""flight_key"": 33, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+108,10,BOARDING_STARTED,2026-03-11 05:25:00,CustomsLink,"{""event"": ""BOARDING_STARTED"", ""flight_key"": 10, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+109,42,INSPECTION_COMPLETED,2025-05-22 03:56:00,ATC-Gateway,"{""event"": ""INSPECTION_COMPLETED"", ""flight_key"": 42, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+110,93,CREW_HANDOVER,2025-12-11 05:31:00,MX-Hub,"{""event"": ""CREW_HANDOVER"", ""flight_key"": 93, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+111,115,BOARDING_STARTED,2026-01-12 06:57:00,BagTrak,"{""event"": ""BOARDING_STARTED"", ""flight_key"": 115, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+112,39,GATE_DEPARTURE,2025-03-11 13:48:00,LegacyHub,"{""event"": ""GATE_DEPARTURE"", ""flight_key"": 39, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+113,116,INSPECTION_STARTED,2026-02-18 18:07:00,SecurityNet,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 116, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+114,131,WHEELS_DOWN,2025-02-17 07:47:00,BagTrak,"{""event"": ""WHEELS_DOWN"", ""flight_key"": 131, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+115,99,GATE_ARRIVAL,2026-01-14 08:16:00,SecurityNet,"{""event"": ""GATE_ARRIVAL"", ""flight_key"": 99, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+116,49,CATERING_LOADED,2025-04-01 23:24:00,CustomsLink,"{""event"": ""CATERING_LOADED"", ""flight_key"": 49, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+117,149,CREW_HANDOVER,2025-09-11 20:56:00,MX-Hub,"{""event"": ""CREW_HANDOVER"", ""flight_key"": 149, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+118,55,INSPECTION_STARTED,2025-07-22 00:56:00,MX-Hub,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 55, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+119,87,PUSHBACK,2025-08-15 07:05:00,LegacyHub,"{""event"": ""PUSHBACK"", ""flight_key"": 87, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+120,39,CATERING_LOADED,2025-03-11 16:53:00,SecurityNet,"{""event"": ""CATERING_LOADED"", ""flight_key"": 39, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+121,2,CREW_HANDOVER,2025-07-25 02:07:00,CrewTrac,"{""event"": ""CREW_HANDOVER"", ""flight_key"": 2, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+122,112,FUEL_LOADED,2025-08-06 14:11:00,WxFeed,"{""event"": ""FUEL_LOADED"", ""flight_key"": 112, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+123,25,BOARDING_COMPLETED,2025-12-30 03:18:00,MX-Hub,"{""event"": ""BOARDING_COMPLETED"", ""flight_key"": 25, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+124,72,CATERING_LOADED,2025-10-19 14:35:00,MX-Hub,"{""event"": ""CATERING_LOADED"", ""flight_key"": 72, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+125,117,CUSTOMS_CLEARED,2025-05-08 22:55:00,LegacyHub,"{""event"": ""CUSTOMS_CLEARED"", ""flight_key"": 117, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+126,38,WHEELS_DOWN,2025-08-29 20:57:00,SecurityNet,"{""event"": ""WHEELS_DOWN"", ""flight_key"": 38, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+127,64,CUSTOMS_CLEARED,2025-08-31 10:47:00,CrewTrac,"{""event"": ""CUSTOMS_CLEARED"", ""flight_key"": 64, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+128,21,CUSTOMS_CLEARED,2025-12-27 04:12:00,CrewTrac,"{""event"": ""CUSTOMS_CLEARED"", ""flight_key"": 21, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+129,75,WHEELS_UP,2025-02-25 10:24:00,BagTrak,"{""event"": ""WHEELS_UP"", ""flight_key"": 75, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+130,129,BOARDING_STARTED,2025-09-04 08:54:00,CustomsLink,"{""event"": ""BOARDING_STARTED"", ""flight_key"": 129, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+131,58,DELAY_ALERT,2025-10-12 08:01:00,MX-Hub,"{""event"": ""DELAY_ALERT"", ""flight_key"": 58, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+132,17,FUEL_LOADED,2025-08-10 00:17:00,CrewTrac,"{""event"": ""FUEL_LOADED"", ""flight_key"": 17, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+133,107,GATE_DEPARTURE,2025-05-13 20:19:00,SecurityNet,"{""event"": ""GATE_DEPARTURE"", ""flight_key"": 107, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+134,60,BOARDING_COMPLETED,2025-12-16 23:51:00,BagTrak,"{""event"": ""BOARDING_COMPLETED"", ""flight_key"": 60, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+135,134,INSPECTION_STARTED,2025-07-13 00:43:00,BagTrak,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 134, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+136,36,CANCELLATION_ALERT,2026-01-06 18:57:00,WxFeed,"{""event"": ""CANCELLATION_ALERT"", ""flight_key"": 36, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+137,26,INSPECTION_STARTED,2025-03-17 21:46:00,WxFeed,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 26, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+138,25,WHEELS_DOWN,2025-12-30 11:42:00,MX-Hub,"{""event"": ""WHEELS_DOWN"", ""flight_key"": 25, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+139,85,GATE_ARRIVAL,2025-09-08 13:55:00,ATC-Gateway,"{""event"": ""GATE_ARRIVAL"", ""flight_key"": 85, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+140,118,INSPECTION_COMPLETED,2025-10-05 06:23:00,WxFeed,"{""event"": ""INSPECTION_COMPLETED"", ""flight_key"": 118, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+141,124,BOARDING_STARTED,2026-03-09 23:53:00,ATC-Gateway,"{""event"": ""BOARDING_STARTED"", ""flight_key"": 124, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+142,49,PUSHBACK,2025-04-01 10:35:00,LegacyHub,"{""event"": ""PUSHBACK"", ""flight_key"": 49, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+143,54,WHEELS_UP,2025-09-05 17:45:00,CrewTrac,"{""event"": ""WHEELS_UP"", ""flight_key"": 54, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+144,74,GATE_ARRIVAL,2025-07-26 08:02:00,LegacyHub,"{""event"": ""GATE_ARRIVAL"", ""flight_key"": 74, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+145,110,GATE_ARRIVAL,2025-04-14 04:10:00,SecurityNet,"{""event"": ""GATE_ARRIVAL"", ""flight_key"": 110, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+146,90,BOARDING_COMPLETED,2025-08-04 21:21:00,ATC-Gateway,"{""event"": ""BOARDING_COMPLETED"", ""flight_key"": 90, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+147,27,INSPECTION_STARTED,2025-11-13 07:16:00,SecurityNet,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 27, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+148,104,CATERING_LOADED,2026-01-31 21:34:00,MX-Hub,"{""event"": ""CATERING_LOADED"", ""flight_key"": 104, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+149,132,GATE_ARRIVAL,2025-07-25 06:51:00,LegacyHub,"{""event"": ""GATE_ARRIVAL"", ""flight_key"": 132, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+150,110,INSPECTION_COMPLETED,2025-04-14 20:07:00,WxFeed,"{""event"": ""INSPECTION_COMPLETED"", ""flight_key"": 110, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+151,142,CANCELLATION_ALERT,2025-12-14 06:39:00,BagTrak,"{""event"": ""CANCELLATION_ALERT"", ""flight_key"": 142, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+152,42,WHEELS_UP,2025-05-22 05:31:00,CrewTrac,"{""event"": ""WHEELS_UP"", ""flight_key"": 42, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+153,41,CUSTOMS_CLEARED,2025-07-31 12:46:00,CustomsLink,"{""event"": ""CUSTOMS_CLEARED"", ""flight_key"": 41, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+154,140,CATERING_LOADED,2025-02-20 01:00:00,ATC-Gateway,"{""event"": ""CATERING_LOADED"", ""flight_key"": 140, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+155,2,PUSHBACK,2025-07-25 08:33:00,SecurityNet,"{""event"": ""PUSHBACK"", ""flight_key"": 2, ""source"": ""legacy_hub"", ""severity"": ""WARN""}"
+156,110,DELAY_ALERT,2025-04-14 10:06:00,LegacyHub,"{""event"": ""DELAY_ALERT"", ""flight_key"": 110, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+157,116,BOARDING_STARTED,2026-02-18 15:34:00,CrewTrac,"{""event"": ""BOARDING_STARTED"", ""flight_key"": 116, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+158,67,INSPECTION_STARTED,2026-01-22 02:15:00,CrewTrac,"{""event"": ""INSPECTION_STARTED"", ""flight_key"": 67, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+159,109,FUEL_LOADED,2025-05-03 12:22:00,BagTrak,"{""event"": ""FUEL_LOADED"", ""flight_key"": 109, ""source"": ""legacy_hub"", ""severity"": ""INFO""}"
+160,45,WHEELS_UP,2025-04-29 11:31:00,SecurityNet,"{""event"": ""WHEELS_UP"", ""flight_key"": 45, ""source"": ""legacy_hub"", ""severity"": ""CRITICAL""}"
+
+Cirium Aviation Intelligence Mart -- Snowflake | Table: flight_history
+Historical Analytics Domain: long-term historical flight performance and metrics (~30 years retention). route_key has no ROUTE_MASTER reference table in this model and is carried as an un-enforced attribute (Assumption #1). flight_key is nullable since the archive may predate operational grain.
+history_id,flight_key,airline_id,route_key,flight_date,delay_minutes,cancelled_flag,load_factor,data_source,ingestion_date
+1,12,52,255,2025-03-26,0,FALSE,51.61,Federal Aviation Registry Extract,2025-03-27
+2,11,42,172,2025-11-08,24,FALSE,47.58,Federal Aviation Registry Extract,2025-11-13
+3,59,42,343,2025-10-01,12,FALSE,56.31,Airline EDW Export,2025-10-05
+4,120,57,2,2025-04-01,5,FALSE,82.89,Historical Tape Backup,2025-04-02
+5,23,33,275,2025-11-19,4,FALSE,82.12,Airline EDW Export,2025-11-22
+6,85,9,114,2025-09-08,,TRUE,47.05,Historical Tape Backup,2025-09-12
+7,22,38,37,2025-06-17,0,FALSE,48.07,Federal Aviation Registry Extract,2025-06-20
+8,26,3,196,2025-03-17,29,FALSE,72.12,Historical Tape Backup,2025-03-20
+9,127,94,289,2025-06-06,60,FALSE,88.67,Airline EDW Export,2025-06-07
+10,122,29,65,2025-06-14,15,FALSE,52.63,Historical Tape Backup,2025-06-18
+11,7,90,358,2026-01-11,20,FALSE,54.98,Legacy DW Archive,2026-01-12
+12,83,1,123,2025-03-23,9,FALSE,47.9,Airline EDW Export,2025-03-26
+13,94,96,209,2025-09-25,40,FALSE,83.46,Airline EDW Export,2025-09-27
+14,113,62,92,2026-02-03,30,FALSE,45.19,Legacy DW Archive,2026-02-08
+15,61,81,327,2026-01-26,10,FALSE,93.99,Airline EDW Export,2026-01-27
+16,98,39,48,2025-12-07,54,FALSE,81.26,Legacy DW Archive,2025-12-09
+17,,46,303,2011-11-21,0,FALSE,62.19,Historical Tape Backup,2011-11-26
+18,80,31,266,2025-04-21,0,FALSE,56.03,Airline EDW Export,2025-04-23
+19,131,31,287,2025-02-17,0,FALSE,76.75,Federal Aviation Registry Extract,2025-02-22
+20,129,33,66,2025-09-04,0,FALSE,72.21,Historical Tape Backup,2025-09-08
+21,48,96,23,2026-02-08,20,FALSE,73.72,Airline EDW Export,2026-02-09
+22,115,6,400,2026-01-12,0,FALSE,65.25,Historical Tape Backup,2026-01-14
+23,131,31,278,2025-02-17,0,FALSE,65.26,Airline EDW Export,2025-02-20
+24,9,50,420,2025-08-09,22,FALSE,58.87,Airline EDW Export,2025-08-11
+25,92,14,364,2025-09-18,28,FALSE,61.55,Airline EDW Export,2025-09-19
+26,54,14,423,2025-09-05,4,FALSE,57.63,Historical Tape Backup,2025-09-08
+27,5,33,140,2025-10-25,12,FALSE,74.61,Airline EDW Export,2025-10-28
+28,112,88,493,2025-08-06,9,FALSE,77.85,Airline EDW Export,2025-08-08
+29,121,50,56,2025-09-08,0,FALSE,83.86,Federal Aviation Registry Extract,2025-09-12
+30,51,38,139,2025-05-07,10,FALSE,93.4,Legacy DW Archive,2025-05-09
+31,108,46,445,2025-10-29,10,FALSE,96.72,Airline EDW Export,2025-11-02
+32,40,94,499,2025-11-30,54,FALSE,79.63,Federal Aviation Registry Extract,2025-12-03
+33,63,15,170,2025-02-12,0,FALSE,46.98,Federal Aviation Registry Extract,2025-02-13
+34,50,60,78,2025-03-04,0,FALSE,86.73,Airline EDW Export,2025-03-09
+35,70,76,226,2025-07-11,0,FALSE,72.57,Airline EDW Export,2025-07-12
+36,48,96,195,2026-02-08,20,FALSE,87.23,Airline EDW Export,2026-02-09
+37,86,42,65,2025-11-11,2,FALSE,81.7,Federal Aviation Registry Extract,2025-11-13
+38,,87,438,2022-11-05,0,FALSE,90.84,Federal Aviation Registry Extract,2022-11-07
+39,148,4,452,2025-12-03,23,FALSE,62.39,Legacy DW Archive,2025-12-08
+40,24,97,262,2025-09-08,31,FALSE,69.85,Federal Aviation Registry Extract,2025-09-10
+41,107,3,469,2025-05-13,0,FALSE,64.61,Federal Aviation Registry Extract,2025-05-14
+42,103,22,124,2025-01-29,0,FALSE,80.31,Historical Tape Backup,2025-01-31
+43,62,53,194,2025-06-03,21,FALSE,79.22,Airline EDW Export,2025-06-06
+44,123,88,240,2025-12-17,13,FALSE,98.3,Legacy DW Archive,2025-12-21
+45,45,80,399,2025-04-29,34,FALSE,77.36,Historical Tape Backup,2025-05-04
+46,41,52,410,2025-07-31,0,FALSE,96.63,Airline EDW Export,2025-08-04
+47,24,97,160,2025-09-08,31,FALSE,69.94,Federal Aviation Registry Extract,2025-09-09
+48,24,97,95,2025-09-08,31,FALSE,64.92,Historical Tape Backup,2025-09-12
+49,75,7,471,2025-02-25,11,FALSE,82.91,Airline EDW Export,2025-02-27
+50,136,4,253,2025-04-02,0,FALSE,51.16,Airline EDW Export,2025-04-07
+51,100,50,184,2025-09-17,41,FALSE,90.79,Airline EDW Export,2025-09-20
+52,95,29,432,2026-01-06,12,FALSE,51.18,Airline EDW Export,2026-01-08
+53,30,73,174,2025-02-23,0,FALSE,53.72,Legacy DW Archive,2025-02-26
+54,1,7,83,2025-03-05,7,FALSE,98.92,Federal Aviation Registry Extract,2025-03-10
+55,104,98,133,2026-01-31,28,FALSE,57.57,Historical Tape Backup,2026-02-02
+56,96,52,418,2025-07-12,53,FALSE,84.61,Legacy DW Archive,2025-07-16
+57,83,1,350,2025-03-23,9,FALSE,66.68,Legacy DW Archive,2025-03-27
+58,51,38,278,2025-05-07,10,FALSE,54.34,Federal Aviation Registry Extract,2025-05-09
+59,129,33,70,2025-09-04,0,FALSE,82.92,Federal Aviation Registry Extract,2025-09-09
+60,75,7,282,2025-02-25,11,FALSE,73.85,Historical Tape Backup,2025-03-02
+61,71,49,159,2025-06-15,37,FALSE,61.25,Federal Aviation Registry Extract,2025-06-20
+62,147,86,427,2025-03-27,0,FALSE,57.0,Historical Tape Backup,2025-03-30
+63,94,96,253,2025-09-25,40,FALSE,69.22,Federal Aviation Registry Extract,2025-09-26
+64,28,76,42,2025-06-13,23,FALSE,78.04,Legacy DW Archive,2025-06-18
+65,132,43,373,2025-07-25,24,FALSE,52.97,Legacy DW Archive,2025-07-27
+66,134,88,12,2025-07-12,11,FALSE,45.85,Federal Aviation Registry Extract,2025-07-16
+67,117,94,273,2025-05-08,0,FALSE,57.89,Federal Aviation Registry Extract,2025-05-10
+68,87,43,309,2025-08-15,9,FALSE,46.41,Airline EDW Export,2025-08-18
+69,19,32,12,2025-08-22,22,FALSE,78.7,Legacy DW Archive,2025-08-23
+70,75,7,344,2025-02-25,11,FALSE,60.05,Legacy DW Archive,2025-02-27
+71,113,62,309,2026-02-03,30,FALSE,87.97,Airline EDW Export,2026-02-08
+72,16,19,375,2025-05-20,14,FALSE,60.46,Airline EDW Export,2025-05-21
+73,142,46,248,2025-12-14,22,FALSE,78.07,Federal Aviation Registry Extract,2025-12-18
+74,119,89,193,2026-02-15,51,FALSE,87.45,Historical Tape Backup,2026-02-17
+75,57,43,144,2025-08-18,34,FALSE,59.62,Federal Aviation Registry Extract,2025-08-20
+76,102,56,24,2025-03-20,1,FALSE,57.1,Federal Aviation Registry Extract,2025-03-24
+77,95,29,237,2026-01-06,12,FALSE,72.53,Historical Tape Backup,2026-01-07
+78,92,14,206,2025-09-18,28,FALSE,56.33,Airline EDW Export,2025-09-22
+79,104,98,81,2026-01-31,28,FALSE,73.33,Federal Aviation Registry Extract,2026-02-04
+80,121,50,497,2025-09-08,0,FALSE,72.37,Federal Aviation Registry Extract,2025-09-10
+81,25,71,136,2025-12-30,0,FALSE,59.9,Legacy DW Archive,2026-01-03
+82,149,9,431,2025-09-11,0,FALSE,56.76,Historical Tape Backup,2025-09-12
+83,78,89,131,2025-08-04,0,FALSE,87.83,Federal Aviation Registry Extract,2025-08-09
+84,145,29,321,2025-04-01,6,FALSE,93.46,Federal Aviation Registry Extract,2025-04-04
+85,25,71,403,2025-12-30,0,FALSE,97.43,Historical Tape Backup,2026-01-03
+86,112,88,97,2025-08-06,9,FALSE,90.78,Federal Aviation Registry Extract,2025-08-10
+87,39,37,163,2025-03-11,14,FALSE,56.94,Historical Tape Backup,2025-03-15
+88,26,3,94,2025-03-17,29,FALSE,83.98,Federal Aviation Registry Extract,2025-03-19
+89,138,31,99,2025-02-21,27,FALSE,68.74,Historical Tape Backup,2025-02-22
+90,,26,393,2019-12-19,0,FALSE,79.89,Legacy DW Archive,2019-12-24
+91,79,58,323,2026-03-08,15,FALSE,84.25,Federal Aviation Registry Extract,2026-03-13
+92,89,12,191,2025-07-28,41,FALSE,50.63,Legacy DW Archive,2025-07-30
+93,40,94,130,2025-11-30,54,FALSE,74.74,Legacy DW Archive,2025-12-01
+94,13,33,102,2025-10-14,46,FALSE,58.41,Legacy DW Archive,2025-10-17
+95,23,33,135,2025-11-19,4,FALSE,71.43,Airline EDW Export,2025-11-20
+96,119,89,115,2026-02-15,51,FALSE,65.06,Historical Tape Backup,2026-02-16
+97,3,52,59,2025-03-18,15,FALSE,62.78,Legacy DW Archive,2025-03-22
+98,6,73,116,2025-11-02,0,FALSE,56.29,Legacy DW Archive,2025-11-05
+99,106,73,334,2025-02-17,13,FALSE,95.28,Historical Tape Backup,2025-02-19
+100,19,32,317,2025-08-22,22,FALSE,96.19,Historical Tape Backup,2025-08-26
+101,136,4,426,2025-04-02,0,FALSE,85.91,Airline EDW Export,2025-04-04
+102,105,88,109,2025-07-20,22,FALSE,80.69,Federal Aviation Registry Extract,2025-07-24
+103,63,15,286,2025-02-12,0,FALSE,72.47,Legacy DW Archive,2025-02-13
+104,111,15,5,2025-01-17,7,FALSE,45.72,Historical Tape Backup,2025-01-19
+105,121,50,419,2025-09-08,0,FALSE,52.07,Airline EDW Export,2025-09-12
+106,53,60,74,2026-02-27,46,FALSE,79.7,Legacy DW Archive,2026-03-02
+107,,57,25,2017-04-16,0,FALSE,81.2,Airline EDW Export,2017-04-17
+108,79,58,408,2026-03-08,15,FALSE,74.48,Federal Aviation Registry Extract,2026-03-09
+109,18,71,480,2026-01-15,35,FALSE,61.15,Airline EDW Export,2026-01-17
+110,129,33,379,2025-09-04,0,FALSE,67.41,Legacy DW Archive,2025-09-05
