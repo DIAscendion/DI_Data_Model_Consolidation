@@ -1,81 +1,88 @@
-## Summary Table
-
-| Category | Score | Notes |
-|---|---|---|
-| Completeness | 100% | All Section 2 rows were either correctly omitted as Direct 1:1 maps or represented via ALTER/RENAME/SET DATA TYPE/constraints; all Section 3 rows are represented via ADD COLUMN, CREATE TABLE, or SKIPPED. |
-| Accuracy | 92% | Snowflake syntax and existing DDL conventions were followed; one match-rule is ambiguous (schedule_id cast direction) and was skipped to avoid guessing. |
-| Efficiency | 96% | Statements are non-redundant; constraint adds are only for gaps not already present (PK columns already covered), and unchanged direct maps are omitted. |
-| **Overall** | **96%** | Average of 100%, 92%, 96%. |
-
 ## Change Summary
-
-- Tables affected (ALTER): 3; new tables created (CREATE): 1
-- Total ALTER statements produced: 7 (additions: 5; renames: 0; casts: 0; constraints: 2)
-- Total CREATE TABLE statements produced: 1
-- Total items skipped: 5
-- Number of tables in the original DDL with no changes at all: 6
+- Tables affected (ALTER): 5; new tables created (CREATE): 2
+- Total ALTER statements produced: 16 (additions: 5; renames: 3; casts: 7; constraints: 1)
+- Total CREATE TABLE statements produced: 2
+- Total items skipped: 3
+- Number of tables in the original DDL with no changes at all: 5
 
 ## SnowflakeDDL Updates - Alter, Create
-
 ```sql
 -- TABLE: gold.airline_master
+ALTER TABLE gold.airline_master ALTER COLUMN airline_id SET DATA TYPE INTEGER;
+ALTER TABLE gold.airline_master ALTER COLUMN airline_id SET NOT NULL;
+ALTER TABLE gold.airline_master ADD CONSTRAINT uq_airline_master_airline_id UNIQUE (airline_id);
 ALTER TABLE gold.airline_master ADD COLUMN alliance VARCHAR(100);
--- IMPACT: Adds a nullable descriptive attribute; existing rows are unaffected and no backfill is required for schema validity.
--- RECOMMENDATION: Backfill alliance from Redshift dim_airline if available; if multiple alliances exist historically, define a current-value rule before loading.
-
 ALTER TABLE gold.airline_master ADD COLUMN carrier_type VARCHAR(50);
--- IMPACT: Adds a nullable classification attribute; existing rows are unaffected.
--- RECOMMENDATION: Populate carrier_type from source and validate allowed values (e.g., Mainline/Low Cost/Cargo) to keep reporting consistent.
 
 -- TABLE: gold.aircraft_master
+ALTER TABLE gold.aircraft_master ALTER COLUMN aircraft_id SET DATA TYPE INTEGER;
+ALTER TABLE gold.aircraft_master ALTER COLUMN operator_airline_id SET DATA TYPE INTEGER;
+
 -- SKIPPED: gold.aircraft_master.delivery_year — Review with business — possible manual mapping needed
 -- SKIPPED: gold.aircraft_master.retirement_year — Review with business — possible manual mapping needed
 
 -- TABLE: gold.airport_master
+ALTER TABLE gold.airport_master ALTER COLUMN airport_id SET DATA TYPE INTEGER;
 ALTER TABLE gold.airport_master ADD COLUMN region VARCHAR(100);
--- IMPACT: Adds a nullable region attribute; no impact to existing data or constraints.
--- RECOMMENDATION: Define the region taxonomy (e.g., continent vs. commercial region) and backfill consistently from source.
-
 ALTER TABLE gold.airport_master ADD COLUMN iata_code VARCHAR(10);
--- IMPACT: Introduces a second airport code attribute alongside airport_code; may create confusion if both are populated differently.
--- RECOMMENDATION: Confirm whether airport_code is currently IATA, ICAO, or mixed; if airport_code already stores IATA, consider keeping iata_code in sync via ETL logic.
-
 ALTER TABLE gold.airport_master ADD COLUMN icao_code VARCHAR(10);
--- IMPACT: Adds ICAO code attribute; existing rows remain valid.
--- RECOMMENDATION: Backfill from authoritative airport reference and add validation checks to ensure ICAO codes are 4-character patterns where applicable.
+
+-- TABLE: gold.customer_master
+ALTER TABLE gold.customer_master ALTER COLUMN customer_id SET DATA TYPE INTEGER;
+
+-- TABLE: gold.data_products
+ALTER TABLE gold.data_products ALTER COLUMN data_product_id SET DATA TYPE INTEGER;
 
 -- TABLE: gold.customer_subscriptions
--- SKIPPED: gold.customer_subscriptions.suscription_id — Gap rule suggests BIGINT + NOT NULL + UNIQUE, but column is IDENTITY PK (NUMBER(38,0)) already; changing PK type is unnecessary and potentially breaking.
--- SKIPPED: gold.flight_operations.schedule_id — Transformation rule is ambiguous about cast direction (VARCHAR(50) to NUMBER(38,0) or vice versa); current DDL is NUMBER(38,0).
+ALTER TABLE gold.customer_subscriptions ALTER COLUMN suscription_id SET DATA TYPE BIGINT;
+ALTER TABLE gold.customer_subscriptions ALTER COLUMN customer_id SET DATA TYPE INTEGER;
+ALTER TABLE gold.customer_subscriptions ALTER COLUMN data_product_id SET DATA TYPE INTEGER;
+-- SKIPPED: gold.customer_subscriptions.tier — Gap analysis indicates rename semantics but DDL already uses Column Name 2 = tier; no rename required
+-- SKIPPED: gold.customer_subscriptions.status — Gap analysis indicates rename semantics but DDL already uses Column Name 2 = status; no rename required
 
 -- TABLE: gold.flight_operations
-ALTER TABLE gold.flight_operations ADD CONSTRAINT uq_flight_operations_flight_key UNIQUE (flight_key);
--- IMPACT: If duplicate flight_key values exist (should not, since it is an IDENTITY PK), the constraint creation will fail.
--- RECOMMENDATION: Validate uniqueness with a quick duplicate check on flight_key before applying; if duplicates exist, investigate downstream loads overriding PK behavior.
-
-ALTER TABLE gold.airline_master ADD CONSTRAINT uq_airline_master_airline_id UNIQUE (airline_id);
--- IMPACT: If duplicate airline_id values exist (should not, since it is an IDENTITY PK), the constraint creation will fail.
--- RECOMMENDATION: Validate uniqueness on airline_id before applying; if present, remediate by reloading the dimension or correcting the merge logic.
+ALTER TABLE gold.flight_operations ALTER COLUMN flight_key SET DATA TYPE BIGINT;
+ALTER TABLE gold.flight_operations ALTER COLUMN airline_id SET DATA TYPE INTEGER;
+ALTER TABLE gold.flight_operations ALTER COLUMN aircraft_id SET DATA TYPE INTEGER;
+ALTER TABLE gold.flight_operations ALTER COLUMN origin_airport_id SET DATA TYPE INTEGER;
+ALTER TABLE gold.flight_operations ALTER COLUMN destination_airport_id SET DATA TYPE INTEGER;
+-- SKIPPED: gold.flight_operations.schedule_id — Transformation rule is ambiguous ("Cast VARCHAR(50) to NUMBER(38,0) or vice versa, depending on canonical model")
+ALTER TABLE gold.flight_operations RENAME COLUMN cancellation_flag TO cancelled_flag;
+ALTER TABLE gold.flight_operations RENAME COLUMN diversion_flag TO diverted_flag;
+ALTER TABLE gold.flight_operations ADD COLUMN flight_status VARCHAR(30);
 
 -- TABLE: gold.event_type_master (NEW)
 CREATE TABLE gold.event_type_master (
-    event_type_id       NUMBER(38,0) IDENTITY(1,1),
-    event_type_key      NUMBER(38,0),
+    event_type_id       NUMBER(38,0)  IDENTITY(1,1),
+    event_type_key      INTEGER,
     event_type_name     VARCHAR(200),
     event_category      VARCHAR(100),
     description         VARCHAR(1000),
     CONSTRAINT pk_event_type_master PRIMARY KEY (event_type_id)
 )
 COMMENT = 'Reference Domain: master data for event types';
--- IMPACT: Introduces a new reference entity that could normalize gold.flight_events.event_type, but no explicit relationship exists in the current Model 2 DDL.
--- RECOMMENDATION: Confirm mapping between flight_events.event_type (VARCHAR) and event_type_key/name; once confirmed, consider adding an event_type_id column to flight_events (or a view) and optionally an FK for documentation.
+
+-- TABLE: gold.route_master (NEW)
+CREATE TABLE gold.route_master (
+    route_id               NUMBER(38,0)  IDENTITY(1,1),
+    route_key              INTEGER,
+    origin_airport_key     INTEGER,
+    destination_airport_key INTEGER,
+    route_distance_miles   NUMBER(10,2),
+    region                 VARCHAR(100),
+    route_type             VARCHAR(50),
+    domestic_international VARCHAR(20),
+    CONSTRAINT pk_route_master PRIMARY KEY (route_id)
+)
+COMMENT = 'Reference Domain: master data for routes';
+
+-- SKIPPED: gold.route_master.origin_airport_key — Possible relationship to gold.airport_master.airport_id, but FK not specified in gap analysis
+-- SKIPPED: gold.route_master.destination_airport_key — Possible relationship to gold.airport_master.airport_id, but FK not specified in gap analysis
 ```
 
 ## Other DDL — Unaltered
-
-- gold.aircraft_master — no changes required (all referencing gap analysis rows were "Direct 1:1 map" or the table was not referenced at all)
-- gold.customer_master — no changes required (all referencing gap analysis rows were "Direct 1:1 map" or the table was not referenced at all)
-- gold.data_products — no changes required (all referencing gap analysis rows were "Direct 1:1 map" or the table was not referenced at all)
 - gold.airline_schedules — no changes required (all referencing gap analysis rows were "Direct 1:1 map" or the table was not referenced at all)
 - gold.flight_events — no changes required (all referencing gap analysis rows were "Direct 1:1 map" or the table was not referenced at all)
 - gold.flight_history — no changes required (all referencing gap analysis rows were "Direct 1:1 map" or the table was not referenced at all)
+- gold.aircraft_master — no changes required (all referencing gap analysis rows were "Direct 1:1 map" or the table was not referenced at all)
+- gold.airport_master — no changes required (all referencing gap analysis rows were "Direct 1:1 map" or the table was not referenced at all)
