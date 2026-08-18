@@ -4,17 +4,24 @@
 
 | Metric | Detail |
 |---|---|
-| Total analytical model tables | 12 |
-| Total stored procedures generated | 12 |
+| Total analytical model tables | 17 |
+| Dimension tables | 11 |
+| Fact tables | 6 |
+| Table-load stored procedures generated | 17 |
+| Orchestration stored procedures generated | 1 |
 | Tables with validation issues | 0 |
 | PII/PHI-handling procedures | 0 |
 
 ## Section 2 — Snowflake Stored Procedures
 
 > Assumptions:
-> - Canonical tables share the same names as the star schema tables (e.g., canonical `DIM_ORGANIZATION` feeds analytical `DIM_ORGANIZATION`).
-> - Surrogate keys (`*_Key` columns) are generated in the analytical tables via Snowflake sequences or IDENTITY; canonical sources contain business/natural keys and numeric foreign keys.
-> - Audit logging table exists as `ANALYTICAL_MIGRATION_AUDIT` with the following minimal structure:
+> - Source is the canonical Gold layer `PHARMA_UNIFIED_DB.CANONICAL`; the analytical star schema resides in schema `ANALYTICAL` (rename schemas/sequences for your environment). Canonical entities share table names with their star-schema targets.
+> - Surrogate keys are carried directly from the canonical `*_KEY` values into the star-schema key columns (for example, canonical `FACILITY_KEY` -> `DIM_FACILITY.FacilityKey`). This preserves referential integrity because the fact tables carry those same canonical keys as foreign keys. The star key columns are `INTEGER AUTOINCREMENT`; Snowflake permits supplying an explicit value, which suppresses sequence generation for that row.
+> - `DIM_DATE.DateKey` is a derived `YYYYMMDD` integer. `FACT_YIELD_ANALYTICS.AnalysisDateKey` (from `ANALYSIS_DATE`) and `FACT_SHIFT_LOG.LogDateKey` (from `LOG_DATE`) are derived with `CAST(TO_CHAR(<date>,'YYYYMMDD') AS INTEGER)` so they join `DIM_DATE`. The transaction-grain facts (production order, batch step, equipment telemetry, deviation) retain their native `TIMESTAMP_TZ` columns per the physical DDL.
+> - `MIGRATE_DIM_DATE` must run before `MIGRATE_FACT_YIELD_ANALYTICS` and `MIGRATE_FACT_SHIFT_LOG`; all dimensions load before the facts. The orchestration procedure `MIGRATE_ALL_ANALYTICAL` enforces this order.
+> - SCD Type 2 lineage columns that the mapper maps (`EffectiveStartDate`, `EffectiveEndDate`, `CurrentFlag`, `ScdVersion`) are loaded directly. Physical helper columns not present in the mapper (`IsCurrent`, `EffectiveDate`, `ExpiryDate`) are left to their column defaults and can be populated by a downstream SCD step.
+> - Strategy is truncate-and-reload from the canonical snapshot, filtering soft-deleted rows (`IS_DELETED = FALSE OR IS_DELETED IS NULL`). Swap in MERGE-based logic for incremental or in-place SCD management as needed.
+> - Audit logging table `ANALYTICAL_MIGRATION_AUDIT` is assumed to exist with:
 >   - PROC_NAME VARCHAR,
 >   - TARGET_TABLE VARCHAR,
 >   - START_TIME TIMESTAMP_TZ,
@@ -25,9 +32,8 @@
 >   - ROWS_UPDATED NUMBER,
 >   - ROWS_REJECTED NUMBER,
 >   - ATTEMPT_NUMBER NUMBER
-> - No PII/PHI columns are present per the mapper (PII column count = 0), so no masking logic is required beyond standard RBAC.
->
-> Replace schema names (`CANONICAL`, `ANALYTICAL`) and sequence names as needed for your environment.
+> - The mapper reports 0 PII/PHI columns (no email, SSN, DOB, salary, phone, or personal-address fields; facility addresses are business locations). No masking logic is required beyond standard RBAC.
+> - Each procedure retries up to 3 times with a short backoff, wraps its work in a transaction, and records the outcome to the audit table.
 
 ---
 
@@ -62,8 +68,8 @@ BEGIN
         BEGIN
             BEGIN TRANSACTION;
 
-            -- Example strategy: truncate and reload Type 2 dimension from canonical snapshot
-            -- Adjust to MERGE-based SCD management if required.
+            -- Truncate and reload Type 2 dimension from canonical snapshot.
+            -- Surrogate key carried directly from canonical ORGANIZATION_KEY to preserve FK integrity.
             TRUNCATE TABLE ANALYTICAL.DIM_ORGANIZATION;
 
             INSERT INTO ANALYTICAL.DIM_ORGANIZATION (
@@ -87,8 +93,7 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                -- Surrogate key: assume IDENTITY already defined on target; use DEFAULT
-                DEFAULT,
+                CAST(ORGANIZATION_KEY AS INTEGER),
                 ORGANIZATION_ID,
                 ORGANIZATION_NAME,
                 ORGANIZATION_TYPE,
@@ -199,6 +204,7 @@ BEGIN
         BEGIN
             BEGIN TRANSACTION;
 
+            -- Surrogate key carried directly from canonical FACILITY_KEY to preserve FK integrity.
             TRUNCATE TABLE ANALYTICAL.DIM_FACILITY;
 
             INSERT INTO ANALYTICAL.DIM_FACILITY (
@@ -241,7 +247,7 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
+                CAST(FACILITY_KEY AS INTEGER),
                 FACILITY_ID,
                 FACILITY_NAME,
                 FACILITY_SHORT_NAME,
@@ -368,6 +374,7 @@ BEGIN
         BEGIN
             BEGIN TRANSACTION;
 
+            -- Surrogate key carried directly from canonical PRODUCT_KEY to preserve FK integrity.
             TRUNCATE TABLE ANALYTICAL.DIM_PRODUCT;
 
             INSERT INTO ANALYTICAL.DIM_PRODUCT (
@@ -412,7 +419,7 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
+                CAST(PRODUCT_KEY AS INTEGER),
                 PRODUCT_ID,
                 SKU,
                 PRODUCT_NAME,
@@ -541,6 +548,7 @@ BEGIN
         BEGIN
             BEGIN TRANSACTION;
 
+            -- Surrogate key carried directly from canonical MATERIAL_LOT_KEY to preserve FK integrity.
             TRUNCATE TABLE ANALYTICAL.DIM_MATERIAL_LOT;
 
             INSERT INTO ANALYTICAL.DIM_MATERIAL_LOT (
@@ -568,7 +576,7 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
+                CAST(MATERIAL_LOT_KEY AS INTEGER),
                 LOT_NUMBER,
                 CAST(PRODUCT_KEY AS INTEGER),
                 CAST(FACILITY_KEY AS INTEGER),
@@ -680,6 +688,7 @@ BEGIN
         BEGIN
             BEGIN TRANSACTION;
 
+            -- Surrogate key carried directly from canonical EQUIPMENT_KEY to preserve FK integrity.
             TRUNCATE TABLE ANALYTICAL.DIM_EQUIPMENT;
 
             INSERT INTO ANALYTICAL.DIM_EQUIPMENT (
@@ -724,7 +733,7 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
+                CAST(EQUIPMENT_KEY AS INTEGER),
                 CANONICAL_EQUIPMENT_ID,
                 EQUIPMENT_NAME,
                 CAST(FACILITY_KEY AS INTEGER),
@@ -853,6 +862,7 @@ BEGIN
         BEGIN
             BEGIN TRANSACTION;
 
+            -- Surrogate key carried directly from canonical PROCESS_STEP_KEY to preserve FK integrity.
             TRUNCATE TABLE ANALYTICAL.DIM_PROCESS_STEP;
 
             INSERT INTO ANALYTICAL.DIM_PROCESS_STEP (
@@ -877,7 +887,7 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
+                CAST(PROCESS_STEP_KEY AS INTEGER),
                 STEP_CODE,
                 STEP_NAME,
                 STEP_CATEGORY,
@@ -986,6 +996,7 @@ BEGIN
         BEGIN
             BEGIN TRANSACTION;
 
+            -- Surrogate key carried directly from canonical PARAMETER_KEY to preserve FK integrity.
             TRUNCATE TABLE ANALYTICAL.DIM_PROCESS_PARAMETER;
 
             INSERT INTO ANALYTICAL.DIM_PROCESS_PARAMETER (
@@ -1016,7 +1027,7 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
+                CAST(PARAMETER_KEY AS INTEGER),
                 PARAMETER_CODE,
                 PARAMETER_NAME,
                 PARAMETER_CATEGORY,
@@ -1131,6 +1142,7 @@ BEGIN
         BEGIN
             BEGIN TRANSACTION;
 
+            -- Surrogate key carried directly from canonical DISPOSITION_KEY to preserve FK integrity.
             TRUNCATE TABLE ANALYTICAL.DIM_QUALITY_DISPOSITION;
 
             INSERT INTO ANALYTICAL.DIM_QUALITY_DISPOSITION (
@@ -1157,7 +1169,7 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
+                CAST(DISPOSITION_KEY AS INTEGER),
                 DISPOSITION_CODE,
                 DISPOSITION_NAME,
                 REQUIRES_INVESTIGATION,
@@ -1268,6 +1280,8 @@ BEGIN
         BEGIN
             BEGIN TRANSACTION;
 
+            -- Surrogate key carried directly from canonical DEVIATION_CATEGORY_KEY to preserve FK integrity.
+            -- Canonical DIM_DEVIATION_CATEGORY carries no _SOURCE_SYSTEM/_SOURCE_KEY columns (matches target DDL).
             TRUNCATE TABLE ANALYTICAL.DIM_DEVIATION_CATEGORY;
 
             INSERT INTO ANALYTICAL.DIM_DEVIATION_CATEGORY (
@@ -1286,7 +1300,7 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
+                CAST(DEVIATION_CATEGORY_KEY AS INTEGER),
                 CATEGORY_CODE,
                 CATEGORY_NAME,
                 CATEGORY_GROUP,
@@ -1363,6 +1377,8 @@ $$;
 -- Procedure: MIGRATE_DIM_OPERATOR
 -- Target table: DIM_OPERATOR (ANALYTICAL schema)
 -- Source canonical entity: DIM_OPERATOR (CANONICAL schema)
+-- Note: mapper reports 0 PII columns; FULL_NAME is an audit-trail
+--       attribute (21 CFR Part 11 attributability), not a masked field.
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_DIM_OPERATOR()
 RETURNS STRING
@@ -1389,6 +1405,7 @@ BEGIN
         BEGIN
             BEGIN TRANSACTION;
 
+            -- Surrogate key carried directly from canonical OPERATOR_KEY to preserve FK integrity.
             TRUNCATE TABLE ANALYTICAL.DIM_OPERATOR;
 
             INSERT INTO ANALYTICAL.DIM_OPERATOR (
@@ -1412,7 +1429,7 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
+                CAST(OPERATOR_KEY AS INTEGER),
                 OPERATOR_ID,
                 FULL_NAME,
                 ROLE_CODE,
@@ -1494,6 +1511,8 @@ $$;
 -- Procedure: MIGRATE_DIM_DATE
 -- Target table: DIM_DATE (ANALYTICAL schema)
 -- Source canonical entities: FACT_YIELD_ANALYTICS, FACT_SHIFT_LOG, FACT_PRODUCTION_ORDER (CANONICAL schema)
+-- Reference: REFERENCE.HOLIDAY_CALENDAR for holiday flags
+-- Must run before FACT_YIELD_ANALYTICS and FACT_SHIFT_LOG loads.
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_DIM_DATE()
 RETURNS STRING
@@ -1522,7 +1541,8 @@ BEGIN
 
             TRUNCATE TABLE ANALYTICAL.DIM_DATE;
 
-            -- Build distinct calendar dates from multiple canonical sources
+            -- Build distinct calendar dates from multiple canonical sources.
+            -- DATEKEY is the derived YYYYMMDD integer that fact DateKey columns join to.
             INSERT INTO ANALYTICAL.DIM_DATE (
                 DATEKEY,
                 FULLDATE,
@@ -1640,6 +1660,7 @@ $$;
 -- Procedure: MIGRATE_FACT_PRODUCTION_ORDER
 -- Target table: FACT_PRODUCTION_ORDER (ANALYTICAL schema)
 -- Source canonical entity: FACT_PRODUCTION_ORDER (CANONICAL schema)
+-- Grain: one row per production order / enterprise batch (native UTC timestamps retained).
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_FACT_PRODUCTION_ORDER()
 RETURNS STRING
@@ -1666,6 +1687,7 @@ BEGIN
         BEGIN
             BEGIN TRANSACTION;
 
+            -- Surrogate key and dimension foreign keys carried directly from canonical to preserve joins.
             TRUNCATE TABLE ANALYTICAL.FACT_PRODUCTION_ORDER;
 
             INSERT INTO ANALYTICAL.FACT_PRODUCTION_ORDER (
@@ -1711,7 +1733,7 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
+                CAST(PRODUCTION_ORDER_KEY AS INTEGER),
                 CANONICAL_BATCH_ID,
                 ERP_ORDER_NUMBER,
                 MES_BATCH_REFERENCE,
@@ -1815,6 +1837,7 @@ $$;
 -- Procedure: MIGRATE_FACT_BATCH_STEP
 -- Target table: FACT_BATCH_STEP (ANALYTICAL schema)
 -- Source canonical entity: FACT_BATCH_STEP (CANONICAL schema)
+-- Grain: one row per batch step execution (native UTC timestamps retained).
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_FACT_BATCH_STEP()
 RETURNS STRING
@@ -1878,7 +1901,7 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
+                CAST(BATCH_STEP_KEY AS INTEGER),
                 CAST(PRODUCTION_ORDER_KEY AS INTEGER),
                 CANONICAL_BATCH_ID,
                 CAST(PROCESS_STEP_KEY AS INTEGER),
@@ -1974,6 +1997,7 @@ $$;
 -- Procedure: MIGRATE_FACT_EQUIPMENT_TELEMETRY
 -- Target table: FACT_EQUIPMENT_TELEMETRY (ANALYTICAL schema)
 -- Source canonical entity: FACT_EQUIPMENT_TELEMETRY (CANONICAL schema)
+-- Grain: one row per parameter reading (immutable; no UPDATED_AT/BY columns).
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_FACT_EQUIPMENT_TELEMETRY()
 RETURNS STRING
@@ -2038,7 +2062,7 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
+                CAST(TELEMETRY_KEY AS INTEGER),
                 CAST(EQUIPMENT_KEY AS INTEGER),
                 CAST(BATCH_STEP_KEY AS INTEGER),
                 CAST(PRODUCTION_ORDER_KEY AS INTEGER),
@@ -2135,6 +2159,7 @@ $$;
 -- Procedure: MIGRATE_FACT_DEVIATION
 -- Target table: FACT_DEVIATION (ANALYTICAL schema)
 -- Source canonical entity: FACT_DEVIATION (CANONICAL schema)
+-- Grain: one row per formal quality deviation event (native UTC timestamps retained).
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_FACT_DEVIATION()
 RETURNS STRING
@@ -2208,7 +2233,7 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
+                CAST(DEVIATION_KEY AS INTEGER),
                 CANONICAL_DEVIATION_ID,
                 CAST(PRODUCTION_ORDER_KEY AS INTEGER),
                 CAST(BATCH_STEP_KEY AS INTEGER),
@@ -2314,6 +2339,9 @@ $$;
 -- Procedure: MIGRATE_FACT_YIELD_ANALYTICS
 -- Target table: FACT_YIELD_ANALYTICS (ANALYTICAL schema)
 -- Source canonical entity: FACT_YIELD_ANALYTICS (CANONICAL schema)
+-- Grain: one row per date / facility / product / aggregation level.
+-- ANALYSISDATEKEY is derived from ANALYSIS_DATE as an INTEGER YYYYMMDD DateKey
+-- (joins DIM_DATE.DateKey). Requires MIGRATE_DIM_DATE to run first.
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_FACT_YIELD_ANALYTICS()
 RETURNS STRING
@@ -2344,7 +2372,7 @@ BEGIN
 
             INSERT INTO ANALYTICAL.FACT_YIELD_ANALYTICS (
                 YIELDANALYTICSKEY,
-                ANALYSISDATE,
+                ANALYSISDATEKEY,
                 FACILITYKEY,
                 PRODUCTKEY,
                 AGGREGATIONLEVEL,
@@ -2379,8 +2407,8 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
-                ANALYSIS_DATE,
+                CAST(YIELD_ANALYTICS_KEY AS INTEGER),
+                CAST(TO_CHAR(ANALYSIS_DATE, 'YYYYMMDD') AS INTEGER),   -- DateKey derived from ANALYSIS_DATE
                 CAST(FACILITY_KEY AS INTEGER),
                 CAST(PRODUCT_KEY AS INTEGER),
                 AGGREGATION_LEVEL,
@@ -2477,6 +2505,9 @@ $$;
 -- Procedure: MIGRATE_FACT_SHIFT_LOG
 -- Target table: FACT_SHIFT_LOG (ANALYTICAL schema)
 -- Source canonical entity: FACT_SHIFT_LOG (CANONICAL schema)
+-- Grain: one row per shift per date per facility.
+-- LOGDATEKEY is derived from LOG_DATE as an INTEGER YYYYMMDD DateKey
+-- (joins DIM_DATE.DateKey). Requires MIGRATE_DIM_DATE to run first.
 -- ============================================================
 CREATE OR REPLACE PROCEDURE MIGRATE_FACT_SHIFT_LOG()
 RETURNS STRING
@@ -2508,7 +2539,7 @@ BEGIN
             INSERT INTO ANALYTICAL.FACT_SHIFT_LOG (
                 SHIFTLOGKEY,
                 FACILITYKEY,
-                LOGDATE,
+                LOGDATEKEY,
                 SHIFTNAME,
                 SHIFTSTARTUTC,
                 SHIFTENDUTC,
@@ -2534,9 +2565,9 @@ BEGIN
                 DELETEDAT
             )
             SELECT
-                DEFAULT,
+                CAST(SHIFT_LOG_KEY AS INTEGER),
                 CAST(FACILITY_KEY AS INTEGER),
-                LOG_DATE,
+                CAST(TO_CHAR(LOG_DATE, 'YYYYMMDD') AS INTEGER),   -- DateKey derived from LOG_DATE
                 SHIFT_NAME,
                 SHIFT_START_UTC,
                 SHIFT_END_UTC,
@@ -2613,6 +2644,56 @@ BEGIN
     IF (v_status <> 'SUCCESS') THEN
         RETURN 'FAILURE: MIGRATE_FACT_SHIFT_LOG - ' || COALESCE(v_error_message, 'UNKNOWN ERROR');
     END IF;
+END;
+$$;
+```
+
+---
+
+```sql
+-- ============================================================
+-- Procedure: MIGRATE_ALL_ANALYTICAL (orchestration)
+-- Purpose : Load the full analytical star schema in dependency order.
+--           Dimensions load first, then DIM_DATE, then the fact tables
+--           (so fact DateKey foreign keys resolve against DIM_DATE and
+--           dimension surrogate keys already exist). Per-table outcomes
+--           are recorded in ANALYTICAL_MIGRATION_AUDIT by each procedure.
+-- ============================================================
+CREATE OR REPLACE PROCEDURE MIGRATE_ALL_ANALYTICAL()
+RETURNS STRING
+LANGUAGE SQL
+EXECUTE AS CALLER
+AS
+$$
+BEGIN
+    -- 1) Dimensions (parents first)
+    CALL MIGRATE_DIM_ORGANIZATION();
+    CALL MIGRATE_DIM_FACILITY();
+    CALL MIGRATE_DIM_PRODUCT();
+    CALL MIGRATE_DIM_MATERIAL_LOT();
+    CALL MIGRATE_DIM_EQUIPMENT();
+    CALL MIGRATE_DIM_PROCESS_STEP();
+    CALL MIGRATE_DIM_PROCESS_PARAMETER();
+    CALL MIGRATE_DIM_QUALITY_DISPOSITION();
+    CALL MIGRATE_DIM_DEVIATION_CATEGORY();
+    CALL MIGRATE_DIM_OPERATOR();
+
+    -- 2) Date dimension (must precede fact DateKey loads)
+    CALL MIGRATE_DIM_DATE();
+
+    -- 3) Facts (in dependency order)
+    CALL MIGRATE_FACT_PRODUCTION_ORDER();
+    CALL MIGRATE_FACT_BATCH_STEP();
+    CALL MIGRATE_FACT_EQUIPMENT_TELEMETRY();
+    CALL MIGRATE_FACT_DEVIATION();
+    CALL MIGRATE_FACT_YIELD_ANALYTICS();
+    CALL MIGRATE_FACT_SHIFT_LOG();
+
+    RETURN 'SUCCESS: MIGRATE_ALL_ANALYTICAL invoked all 17 table-load procedures in dependency order. See ANALYTICAL_MIGRATION_AUDIT for per-table status.';
+
+EXCEPTION
+    WHEN OTHER THEN
+        RETURN 'FAILURE: MIGRATE_ALL_ANALYTICAL - ' || COALESCE(SQLERRM, 'UNKNOWN ERROR');
 END;
 $$;
 ```
